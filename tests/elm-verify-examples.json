@@ -1,6 +1,7 @@
 {
   "root": "../src",
   "tests": [
-    "Tracery"
+    "Tracery",
+    "Grammar"
   ]
 }
