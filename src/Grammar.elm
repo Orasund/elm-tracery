@@ -31,6 +31,103 @@ type Grammar
         }
 
 
+isValid : List String -> Syntax -> Result String ()
+isValid oldKeys dict =
+    let
+        keys =
+            dict |> Dict.keys |> (++) oldKeys
+
+        verify k sentences =
+            if
+                List.any
+                    (\sentenceKeys ->
+                        not (List.member k sentenceKeys)
+                    )
+                    sentences
+            then
+                sentences
+                    |> List.concat
+                    |> List.filterMap
+                        (\sentenceKey ->
+                            if List.member sentenceKey keys then
+                                Nothing
+
+                            else
+                                Just sentenceKey
+                        )
+                    |> (\l ->
+                            case l of
+                                [] ->
+                                    Ok ()
+
+                                [ a ] ->
+                                    "In the definition of "
+                                        ++ k
+                                        ++ " the variable "
+                                        ++ a
+                                        ++ " is not defined."
+                                        |> Err
+
+                                head :: tail ->
+                                    "In the definition of "
+                                        ++ k
+                                        ++ " the variables "
+                                        ++ (tail |> String.join ", ")
+                                        ++ " and "
+                                        ++ head
+                                        ++ " are not defined."
+                                        |> Err
+                       )
+
+            else
+                "The definition of "
+                    ++ k
+                    ++ " needs an option that does not contain itself."
+                    |> Err
+    in
+    dict
+        |> Dict.toList
+        |> List.map
+            (\( k, v ) ->
+                case v of
+                    Choose l ->
+                        l
+                            |> List.map
+                                (\sentence ->
+                                    sentence
+                                        |> List.filterMap
+                                            (\exp ->
+                                                case exp of
+                                                    Print _ ->
+                                                        Nothing
+
+                                                    Insert key ->
+                                                        Just key
+                                            )
+                                )
+                            |> verify k
+
+                    Let l ->
+                        l
+                            |> List.filterMap
+                                (\exp ->
+                                    case exp of
+                                        Print _ ->
+                                            Nothing
+
+                                        Insert key ->
+                                            Just key
+                                )
+                            |> List.singleton
+                            |> verify k
+
+                    With subSyntax ->
+                        isValid keys subSyntax
+            )
+        |> Result.Extra.combine
+        |> Result.map (\_ -> ())
+
+
 {-|
 
     import Dict
@@ -126,7 +223,7 @@ fromSyntax syntax =
         |> Grammar
 
 
-decodeSyntax : JsonValue -> Result String (Dict String Definition)
+decodeSyntax : JsonValue -> Result String Syntax
 decodeSyntax jsonValue =
     case jsonValue of
         ObjectValue list ->
@@ -138,6 +235,12 @@ decodeSyntax jsonValue =
                     )
                 |> Result.Extra.combine
                 |> Result.map Dict.fromList
+                |> Result.andThen
+                    (\syntax ->
+                        syntax
+                            |> isValid []
+                            |> Result.map (\() -> syntax)
+                    )
 
         _ ->
             errorString
