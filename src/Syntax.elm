@@ -1,4 +1,4 @@
-module Grammar exposing (Definition(..), Expression(..), Grammar(..), Syntax, decoder, fromString)
+module Syntax exposing (Definition(..), Expression(..), Syntax, decoder,originString, fromString)
 
 import Dict exposing (Dict)
 import Json.Decode
@@ -22,20 +22,14 @@ type Definition
 type alias Syntax =
     Dict String Definition
 
-
-type Grammar
-    = Grammar
-        { constant : Dict String (List Expression)
-        , variable : Dict String (List (List Expression))
-        , subGrammar : Dict String Grammar
-        }
-
-
+originString : String
+originString =
+    "origin"
 isValid : List String -> Syntax -> Result String ()
 isValid oldKeys dict =
     let
         keys =
-            dict |> Dict.keys |> (++) oldKeys
+            dict |> Debug.log "dict" |> Dict.keys |> (++) oldKeys |> Debug.log "keys"
 
         verify k sentences =
             if
@@ -65,7 +59,8 @@ isValid oldKeys dict =
                                         ++ k
                                         ++ " the variable "
                                         ++ a
-                                        ++ " is not defined."
+                                        ++ " is not defined. Defined is "
+                                        ++ (keys ++ oldKeys |> String.join ", ")
                                         |> Err
 
                                 head :: tail ->
@@ -89,40 +84,44 @@ isValid oldKeys dict =
         |> Dict.toList
         |> List.map
             (\( k, v ) ->
-                case v of
-                    Choose l ->
-                        l
-                            |> List.map
-                                (\sentence ->
-                                    sentence
-                                        |> List.filterMap
-                                            (\exp ->
-                                                case exp of
-                                                    Print _ ->
-                                                        Nothing
+                if k /= originString && List.member k oldKeys then
+                    Err (k ++ " has already been defined.")
 
-                                                    Insert key ->
-                                                        Just key
-                                            )
-                                )
-                            |> verify k
+                else
+                    case v of
+                        Choose l ->
+                            l
+                                |> List.map
+                                    (\sentence ->
+                                        sentence
+                                            |> List.filterMap
+                                                (\exp ->
+                                                    case exp of
+                                                        Print _ ->
+                                                            Nothing
 
-                    Let l ->
-                        l
-                            |> List.filterMap
-                                (\exp ->
-                                    case exp of
-                                        Print _ ->
-                                            Nothing
+                                                        Insert key ->
+                                                            Just key
+                                                )
+                                    )
+                                |> verify k
 
-                                        Insert key ->
-                                            Just key
-                                )
-                            |> List.singleton
-                            |> verify k
+                        Let l ->
+                            l
+                                |> List.filterMap
+                                    (\exp ->
+                                        case exp of
+                                            Print _ ->
+                                                Nothing
 
-                    With subSyntax ->
-                        isValid keys subSyntax
+                                            Insert key ->
+                                                Just key
+                                    )
+                                |> List.singleton
+                                |> verify k
+
+                        With subSyntax ->
+                            isValid (keys) subSyntax
             )
         |> Result.Extra.combine
         |> Result.map (\_ -> ())
@@ -143,84 +142,57 @@ isValid oldKeys dict =
          }
        }"""
 
-    output : Grammar
+    output : Syntax
     output =
-          Grammar
-            { constant = Dict.empty
-            , variable = Dict.fromList
-                [ ( "origin"
-                  , [ [Print "Hello ", Print "\\", Print " World ",Print "#"]
-                    , [Insert "statement", Print " and ", Insert "statement"]
-                    ]
-                  )
-                ]
-            , subGrammar =
-                Dict.fromList
-                [   ( "statement"
-                    , Grammar
-                      { constant = Dict.fromList
-                        [ ( "origin"
-                          , [ Print "my ", Insert "myPet", Print " is the ", Insert "complement"]
-                          )
-                        , ( "myPet", [Insert "pet"])
-                        ]
-                      , variable = Dict.fromList
-                        [ ( "pet", [[Print "cat"],[Print "dog"]])
-                        , ( "complement"
-                          , [ [ Print "smartest ", Insert "myPet", Print " in the world"]
-                            , [ Print "fastest ", Insert "myPet", Print " that i know of"]
-                            ]
-                          )
-                        ]
-                      , subGrammar = Dict.empty
-                      }
+        Dict.fromList
+            [ ( "origin"
+              , Choose 
+                  [ [Print "Hello ", Print "\\", Print " World ",Print "#"]
+                  , [Insert "statement", Print " and ", Insert "statement"]
+                  ]
+              )
+            , ( "statement"
+              , Dict.fromList
+                  [ ( "origin"
+                    , Let [ Print "my ", Insert "myPet", Print " is the ", Insert "complement"]
                     )
-                ]
-            }
-
+                  , ( "myPet",Let [Insert "pet"])
+                  , ( "pet", Choose [[Print "cat"],[Print "dog"]])
+                  , ( "complement"
+                    , Choose
+                        [ [ Print "smartest ", Insert "myPet", Print " in the world"]
+                        , [ Print "fastest ", Insert "myPet", Print " that i know of"]
+                        ]
+                    )
+                  ] 
+                    |> With
+                )
+            ]
 
     input |> fromString
     --> Ok output
 
 -}
-fromString : String -> Result Json.Decode.Error Grammar
+fromString : String -> Result Json.Decode.Error Syntax
 fromString =
     Json.Decode.decodeString decoder
 
 
-decoder : Json.Decode.Decoder Grammar
+decoder : Json.Decode.Decoder Syntax
 decoder =
     Json.Value.decoder
         |> Json.Decode.andThen
             (\jsonValue ->
                 jsonValue
                     |> decodeSyntax
+                    |> Result.andThen (\syntax ->
+                        syntax
+                            |> isValid []
+                            |> Result.map (\() -> syntax)
+                            )
                     |> Result.map Json.Decode.succeed
                     |> Result.Extra.extract Json.Decode.fail
             )
-        |> Json.Decode.map fromSyntax
-
-
-fromSyntax : Syntax -> Grammar
-fromSyntax syntax =
-    syntax
-        |> Dict.foldl
-            (\k v dict ->
-                case v of
-                    Choose list ->
-                        { dict | variable = dict.variable |> Dict.insert k list }
-
-                    Let list ->
-                        { dict | constant = dict.constant |> Dict.insert k list }
-
-                    With subSyntax ->
-                        { dict | subGrammar = dict.subGrammar |> Dict.insert k (fromSyntax subSyntax) }
-            )
-            { constant = Dict.empty
-            , variable = Dict.empty
-            , subGrammar = Dict.empty
-            }
-        |> Grammar
 
 
 decodeSyntax : JsonValue -> Result String Syntax
@@ -235,12 +207,6 @@ decodeSyntax jsonValue =
                     )
                 |> Result.Extra.combine
                 |> Result.map Dict.fromList
-                |> Result.andThen
-                    (\syntax ->
-                        syntax
-                            |> isValid []
-                            |> Result.map (\() -> syntax)
-                    )
 
         _ ->
             errorString

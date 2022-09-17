@@ -1,23 +1,21 @@
-module Tracery exposing (fromJson)
+module Tracery exposing (fromJson, fromSyntax)
 
 import Dict exposing (Dict)
-import Grammar exposing (Definition(..), Expression(..), Grammar(..), Syntax)
 import Json.Decode
 import Json.Value exposing (JsonValue(..))
-import Parser exposing ((|.), (|=), Parser)
+import Parser exposing ((|.), (|=))
 import Random exposing (Generator)
-import Result.Extra
-import Set
+import Syntax exposing (Definition(..), Expression(..), Syntax)
 
 
-fromJson : String -> Result Json.Decode.Error Grammar
-fromJson =
-    Grammar.fromString
+fromJson : String -> Result Json.Decode.Error (Generator String)
+fromJson string =
+    string |> Syntax.fromString |> Result.map fromSyntax
 
 
-toGenerator : Syntax -> Generator String
-toGenerator syntax =
-    generateStory "origin" Dict.empty syntax |> Random.map Tuple.first
+fromSyntax : Syntax -> Generator String
+fromSyntax syntax =
+    generateStory Syntax.originString Dict.empty syntax |> Random.map Tuple.first
 
 
 generateStory : String -> Dict String String -> Syntax -> Generator ( String, Dict String String )
@@ -29,7 +27,7 @@ generateStory k0 constants syntax =
                     Choose statements ->
                         case statements of
                             [] ->
-                                Random.constant ""
+                                Random.constant ( "", constants )
 
                             head :: tail ->
                                 Random.uniform head tail
@@ -38,12 +36,19 @@ generateStory k0 constants syntax =
                     Let sentence ->
                         case constants |> Dict.get k0 of
                             Just string ->
-                                Random.constant string
+                                Random.constant ( string, constants )
 
                             Nothing ->
                                 sentence
                                     |> generateSentence constants syntax
+                                    |> Random.map (\(s,c) -> (s,c |> Dict.insert k0 s))
+
+                    With subSyntax ->
+                        (subSyntax |> Dict.union (syntax |> Dict.remove Syntax.originString))
+                        |> generateStory Syntax.originString constants 
+                            |> Random.map  (\(s,c) -> (s,c |> Dict.insert k0 s))
             )
+        |> Maybe.withDefault (Random.constant ( "", constants ))
 
 
 generateSentence : Dict String String -> Syntax -> List Expression -> Generator ( String, Dict String String )
