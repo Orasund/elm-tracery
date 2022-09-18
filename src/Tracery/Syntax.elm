@@ -1,4 +1,4 @@
-module Syntax exposing
+module Tracery.Syntax exposing
     ( Syntax, Expression(..), Definition(..)
     , decoder, fromString, originString
     )

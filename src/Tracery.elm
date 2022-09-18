@@ -13,7 +13,7 @@ import Json.Decode
 import Json.Value exposing (JsonValue(..))
 import Parser exposing ((|.), (|=))
 import Random exposing (Generator)
-import Syntax exposing (Definition(..), Expression(..), Syntax)
+import Tracery.Syntax exposing (Definition(..), Expression(..), Syntax)
 
 
 {-| Turns a tracery json-string into a generator
@@ -91,14 +91,14 @@ You may define sub-definitions to organize your definitions.
 -}
 fromJson : String -> Result Json.Decode.Error (Generator String)
 fromJson string =
-    string |> Syntax.fromString |> Result.map fromSyntax
+    string |> Tracery.Syntax.fromString |> Result.map fromSyntax
 
 
 {-| Creates a string generator based on a syntax.
 -}
 fromSyntax : Syntax -> Generator String
 fromSyntax syntax =
-    generateStory Syntax.originString Dict.empty syntax |> Random.map Tuple.first
+    generateStory Tracery.Syntax.originString Dict.empty syntax |> Random.map Tuple.first
 
 
 generateStory : String -> Dict String String -> Syntax -> Generator ( String, Dict String String )
@@ -108,7 +108,7 @@ generateStory k0 constants syntax =
             (\definition ->
                 case definition of
                     Choose statements ->
-                        case statements |> Debug.log "statements" of
+                        case statements of
                             [] ->
                                 Random.constant ( "", constants )
 
@@ -127,8 +127,8 @@ generateStory k0 constants syntax =
                                     |> Random.map (\( s, c ) -> ( s, c |> Dict.insert k0 s ))
 
                     With subSyntax ->
-                        (subSyntax |> Dict.union (syntax |> Dict.remove Syntax.originString))
-                            |> generateStory Syntax.originString constants
+                        (subSyntax |> Dict.union (syntax |> Dict.remove Tracery.Syntax.originString))
+                            |> generateStory Tracery.Syntax.originString constants
                             |> Random.map (\( s, c ) -> ( s, c |> Dict.insert k0 s ))
             )
         |> Maybe.withDefault (Random.constant ( "error: " ++ k0 ++ " does not exist", constants ))
@@ -148,7 +148,6 @@ generateSentence constants syntax sentence =
                             |> Random.andThen
                                 (\( s1, g1 ) ->
                                     generateStory key g1 syntax
-                                        |> Debug.log "story"
                                         |> Random.map (Tuple.mapFirst (\s2 -> s1 ++ s2))
                                 )
             )

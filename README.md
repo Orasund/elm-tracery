@@ -1,6 +1,8 @@
 # elm-tracery
 
-Interpreter for the Tracery language
+Interpreter for the Tracery language.
+
+See [Tracery.io](www.tracery.io) for more information.
 
 ## Installation
 
