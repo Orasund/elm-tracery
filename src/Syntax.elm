@@ -1,4 +1,10 @@
-module Syntax exposing (Definition(..), Expression(..), Syntax, decoder,originString, fromString)
+module Syntax exposing (Definition(..), Expression(..), Syntax, decoder, fromString, originString)
+
+{-| This modules exposes the internal structures of the package.
+
+Its intended to be used in combination with some preprocessing.
+
+-}
 
 import Dict exposing (Dict)
 import Json.Decode
@@ -8,28 +14,53 @@ import Result.Extra
 import Set
 
 
+{-| The expressions always return a string
+
+  - `Print` - just return the given string
+  - `Insert` - look up the key and insert a generated string according to the definition of the key.
+
+-}
 type Expression
     = Print String
     | Insert String
 
 
+{-| The definition specifies how the strings gets generated
+
+  - `Choose` - Choose a random sentence out of a list.
+  - `Let` - Generate the sentence one. Then use the sentence over and over again.
+  - `With` - Generate the sentence according to the sub-grammar.
+
+-}
 type Definition
     = Choose (List (List Expression))
     | Let (List Expression)
     | With Syntax
 
 
+{-| The Syntax is just a dictionary of keys and their definition.
+-}
 type alias Syntax =
     Dict String Definition
 
+
+{-| The origin is the starting point for the generated story.
+
+    originString : String
+    originString =
+        "origin"
+
+-}
 originString : String
 originString =
     "origin"
+
+
 isValid : List String -> Syntax -> Result String ()
 isValid oldKeys dict =
     let
         keys =
-            dict |> Debug.log "dict" |> Dict.keys |> (++) oldKeys |> Debug.log "keys"
+            dict |> Dict.keys |> (++) oldKeys
 
         verify k sentences =
             if
@@ -121,7 +152,7 @@ isValid oldKeys dict =
                                 |> verify k
 
                         With subSyntax ->
-                            isValid (keys) subSyntax
+                            isValid keys subSyntax
             )
         |> Result.Extra.combine
         |> Result.map (\_ -> ())
@@ -146,7 +177,7 @@ isValid oldKeys dict =
     output =
         Dict.fromList
             [ ( "origin"
-              , Choose 
+              , Choose
                   [ [Print "Hello ", Print "\\", Print " World ",Print "#"]
                   , [Insert "statement", Print " and ", Insert "statement"]
                   ]
@@ -164,7 +195,7 @@ isValid oldKeys dict =
                         , [ Print "fastest ", Insert "myPet", Print " that i know of"]
                         ]
                     )
-                  ] 
+                  ]
                     |> With
                 )
             ]
@@ -178,6 +209,8 @@ fromString =
     Json.Decode.decodeString decoder
 
 
+{-| Decoder for the Syntax.
+-}
 decoder : Json.Decode.Decoder Syntax
 decoder =
     Json.Value.decoder
@@ -185,11 +218,12 @@ decoder =
             (\jsonValue ->
                 jsonValue
                     |> decodeSyntax
-                    |> Result.andThen (\syntax ->
-                        syntax
-                            |> isValid []
-                            |> Result.map (\() -> syntax)
-                            )
+                    |> Result.andThen
+                        (\syntax ->
+                            syntax
+                                |> isValid []
+                                |> Result.map (\() -> syntax)
+                        )
                     |> Result.map Json.Decode.succeed
                     |> Result.Extra.extract Json.Decode.fail
             )
