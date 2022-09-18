@@ -1,5 +1,14 @@
 # elm-tracery
+
 Interpreter for the Tracery language
+
+## Installation
+
+```
+elm install Orasund/elm-tracery
+```
+
+## How to use
 
 ```elm
 import Tracery
@@ -31,3 +40,9 @@ seed =
     )
 --> "I have a black dog named Johnny and a parrot named Charles. I love Johnny the most. It's the best black dog in the world."
 ```
+
+## Differences to the original Tracery
+
+* No support of "saving" values. Instead values can be constant.
+* Entry point is always `"origin"`.
+* Supporting sub-grammars in favor of the more experimental features of the original.

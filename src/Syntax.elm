@@ -1,8 +1,14 @@
-module Syntax exposing (Definition(..), Expression(..), Syntax, decoder, fromString, originString)
+module Syntax exposing
+    ( Syntax, Expression(..), Definition(..)
+    , decoder, fromString, originString
+    )
 
 {-| This modules exposes the internal structures of the package.
 
 Its intended to be used in combination with some preprocessing.
+
+@docs Syntax, Expression, Definition
+@docs decoder, fromString, originString
 
 -}
 

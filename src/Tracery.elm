@@ -1,5 +1,13 @@
 module Tracery exposing (fromJson, fromSyntax)
 
+{-| Tracery is a text-generation language mostly used for twitter bots.
+
+See [Tracery.io](www.tracery.io) for more information.
+
+@docs fromJson, fromSyntax
+
+-}
+
 import Dict exposing (Dict)
 import Json.Decode
 import Json.Value exposing (JsonValue(..))
