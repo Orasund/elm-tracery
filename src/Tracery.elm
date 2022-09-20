@@ -18,8 +18,6 @@ import Tracery.Syntax exposing (Definition(..), Expression(..), Syntax)
 
 {-| Turns a tracery json-string into a generator
 
-A tracery json is a object that has a `origin` field.
-
     import Json.Decode
     import Random
     import Result.Extra
@@ -38,6 +36,17 @@ A tracery json is a object that has a `origin` field.
                     Random.step generator seed
                         |> Tuple.first
                 )
+
+A tracery json is a object that has a `origin` field.
+
+The `#` and `\` characters need to be escaped.
+
+    """
+    { "origin": "The \\\\# and \\\\\\\\ characters need to be escaped."}
+    """
+    |> generate
+    |> Debug.log "exposing"
+    --> "The # and \\ characters need to be escaped."
 
 You can reference other fields using `#..#`
 
