@@ -8,11 +8,11 @@ See [Tracery.io](www.tracery.io) for more information.
 
 -}
 
-import Dict exposing (Dict)
 import Json.Decode
 import Json.Value exposing (JsonValue(..))
 import Parser exposing ((|.), (|=))
 import Random exposing (Generator)
+import Tracery.Grammar
 import Tracery.Syntax exposing (Definition(..), Expression(..), Syntax)
 
 
@@ -107,57 +107,5 @@ fromJson string =
 -}
 fromSyntax : Syntax -> Generator String
 fromSyntax syntax =
-    generateStory Tracery.Syntax.originString Dict.empty syntax |> Random.map Tuple.first
-
-
-generateStory : String -> Dict String String -> Syntax -> Generator ( String, Dict String String )
-generateStory k0 constants syntax =
-    Dict.get k0 syntax
-        |> Maybe.map
-            (\definition ->
-                case definition of
-                    Choose statements ->
-                        case statements of
-                            [] ->
-                                Random.constant ( "", constants )
-
-                            head :: tail ->
-                                Random.uniform head tail
-                                    |> Random.andThen (generateSentence constants syntax)
-
-                    Let sentence ->
-                        case constants |> Dict.get k0 of
-                            Just string ->
-                                Random.constant ( string, constants )
-
-                            Nothing ->
-                                sentence
-                                    |> generateSentence constants syntax
-                                    |> Random.map (\( s, c ) -> ( s, c |> Dict.insert k0 s ))
-
-                    With subSyntax ->
-                        (subSyntax |> Dict.union (syntax |> Dict.remove Tracery.Syntax.originString))
-                            |> generateStory Tracery.Syntax.originString constants
-                            |> Random.map (\( s, c ) -> ( s, c |> Dict.insert k0 s ))
-            )
-        |> Maybe.withDefault (Random.constant ( "error: " ++ k0 ++ " does not exist", constants ))
-
-
-generateSentence : Dict String String -> Syntax -> List Expression -> Generator ( String, Dict String String )
-generateSentence constants syntax sentence =
-    sentence
-        |> List.foldl
-            (\exp generator ->
-                case exp of
-                    Print string ->
-                        generator |> Random.map (Tuple.mapFirst (\it -> it ++ string))
-
-                    Insert key ->
-                        generator
-                            |> Random.andThen
-                                (\( s1, g1 ) ->
-                                    generateStory key g1 syntax
-                                        |> Random.map (Tuple.mapFirst (\s2 -> s1 ++ s2))
-                                )
-            )
-            (Random.constant ( "", constants ))
+    Tracery.Grammar.fromSyntax syntax
+        |> Tracery.Grammar.generate

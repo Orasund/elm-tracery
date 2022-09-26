@@ -31,7 +31,7 @@ seed =
 
 spec4 : Test.Test
 spec4 =
-    Test.test "#fromJson: \n\n    \"\"\"\n    { \"origin\": \"The \\\\\\\\# and \\\\\\\\\\\\\\\\ characters need to be escaped.\"}\n    \"\"\"\n    |> generate\n    |> Debug.log \"exposing\"\n    --> \"The # and \\\\\\\\ characters need to be escaped.\"" <|
+    Test.test "#fromJson: \n\n    \"\"\"\n    { \"origin\": \"The \\\\\\\\# and \\\\\\\\\\\\\\\\ characters need to be escaped.\"}\n    \"\"\"\n    |> generate\n    |> Debug.log \"exposing\"\n    --> \"The # and \\\\ characters need to be escaped.\"" <|
         \() ->
             Expect.equal
                 (
@@ -42,5 +42,5 @@ spec4 =
                 |> Debug.log "exposing"
                 )
                 (
-                "The # and \\\\ characters need to be escaped."
+                "The # and \\ characters need to be escaped."
                 )
