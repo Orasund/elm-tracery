@@ -80,6 +80,21 @@ You can define constants by providing a string instead of a list.
     |> generate
     --> "My fish is the best fish in the world"
 
+However only one layer is constant.
+
+    """
+    { "origin": "#sentence# and #sentence#"
+    , "sentence":
+        [ "my #favoritePet# is better than my neighbors #pet#"
+        , "my #favoritePet# is worse than my neighbors #pet#"
+        ]
+    , "favoritePet": "#pet#"
+    , "pet": ["cat","dog","fish","parrot"]
+    }
+    """
+    |> generate
+    --> "my cat is worse than my neighbors dog and my cat is better than my neighbors parrot"
+
 You may define sub-definitions to organize your definitions.
 
     """

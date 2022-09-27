@@ -31,18 +31,18 @@ seed =
 
 spec2 : Test.Test
 spec2 =
-    Test.test "#fromJson: \n\n    \"\"\"\n    { \"origin\": \"I have #pets#\"\n    , \"pets\": [\"a #pet#\",\"a #pet# and #pets#\"]\n    , \"pet\": [\"cat\",\"dog\",\"fish\",\"parrot\"]\n    }\n    \"\"\"\n    |> generate\n    --> \"I have a cat and a dog\"" <|
+    Test.test "#fromJson: \n\n    \"\"\"\n    { \"origin\": \"My #favoritePet# is the best #favoritePet# in the world\"\n    , \"favoritePet\" : \"#pet#\"\n    , \"pet\": [\"cat\",\"dog\",\"fish\",\"parrot\"]\n    }\n    \"\"\"\n    |> generate\n    --> \"My fish is the best fish in the world\"" <|
         \() ->
             Expect.equal
                 (
                 """
-                { "origin": "I have #pets#"
-                , "pets": ["a #pet#","a #pet# and #pets#"]
+                { "origin": "My #favoritePet# is the best #favoritePet# in the world"
+                , "favoritePet" : "#pet#"
                 , "pet": ["cat","dog","fish","parrot"]
                 }
                 """
                 |> generate
                 )
                 (
-                "I have a cat and a dog"
+                "My fish is the best fish in the world"
                 )
