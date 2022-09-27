@@ -46,10 +46,11 @@ fromSyntax syntax =
 
 generate : Grammar -> Generator String
 generate grammar =
-    generateStory grammar |> Random.map Tuple.first
+    generateStory grammar
+        |> Random.map .story
 
 
-generateStory : Grammar -> Generator ( String, Maybe Grammar )
+generateStory : Grammar -> Generator Grammar
 generateStory grammar =
     case grammar.next of
         Just k0 ->
@@ -60,33 +61,31 @@ generateStory grammar =
                             Choose statements ->
                                 case statements of
                                     [] ->
-                                        Random.constant ( "", Just grammar )
+                                        Random.constant grammar
 
                                     head :: tail ->
                                         Random.uniform head tail
-                                            |> Random.andThen (generateSentence grammar)
+                                            |> Random.andThen (generateSentence { grammar | story = "" })
+                                            |> Random.map (\g -> { g | story = grammar.story ++ g.story })
 
                             Let sentence ->
                                 case grammar.constants |> Dict.get k0 of
                                     Just string ->
-                                        Random.constant ( string, Just grammar )
+                                        Random.constant { grammar | story = grammar.story ++ string }
 
                                     Nothing ->
                                         sentence
-                                            |> generateSentence grammar
+                                            |> generateSentence { grammar | story = "" }
                                             |> Random.map
-                                                (\( s, maybe ) ->
-                                                    case maybe of
-                                                        Just c ->
-                                                            ( s, c |> mapConstants (Dict.insert k0 s) |> Just )
-
-                                                        Nothing ->
-                                                            ( s, maybe )
+                                                (\g ->
+                                                    { g | story = grammar.story ++ g.story }
+                                                        |> mapConstants (Dict.insert k0 g.story)
                                                 )
 
                             With subDefinitions ->
                                 { grammar
-                                    | next = Just Tracery.Syntax.originString
+                                    | story = ""
+                                    , next = Just Tracery.Syntax.originString
                                     , definitions =
                                         subDefinitions
                                             |> Dict.union
@@ -96,41 +95,32 @@ generateStory grammar =
                                 }
                                     |> generateStory
                                     |> Random.map
-                                        (\( s, maybe ) ->
-                                            case maybe of
-                                                Just c ->
-                                                    ( s, c |> mapConstants (Dict.insert k0 s) |> Just )
-
-                                                Nothing ->
-                                                    ( s, maybe )
+                                        (\g ->
+                                            { g | story = grammar.story ++ g.story }
+                                                |> mapConstants (Dict.insert k0 g.story)
                                         )
                     )
-                |> Maybe.withDefault (Random.constant ( "error: " ++ k0 ++ " does not exist", Nothing ))
+                |> Maybe.withDefault (Random.constant { grammar | story = "error: " ++ k0 ++ " does not exist" })
 
         Nothing ->
-            Random.constant ( grammar.story, Nothing )
+            Random.constant grammar
 
 
-generateSentence : Grammar -> List Expression -> Generator ( String, Maybe Grammar )
+generateSentence : Grammar -> List Expression -> Generator Grammar
 generateSentence grammar sentence =
     sentence
         |> List.foldl
             (\exp generator ->
                 case exp of
                     Print string ->
-                        generator |> Random.map (Tuple.mapFirst (\it -> it ++ string))
+                        generator |> Random.map (\g -> { g | story = g.story ++ string })
 
                     Insert key ->
                         generator
                             |> Random.andThen
-                                (\( s1, maybe ) ->
-                                    case maybe of
-                                        Just g1 ->
-                                            generateStory { g1 | next = Just key }
-                                                |> Random.map (Tuple.mapFirst (\s2 -> s1 ++ s2))
-
-                                        Nothing ->
-                                            Random.constant ( s1, maybe )
+                                (\g1 ->
+                                    generateStory { g1 | story = "", next = Just key }
+                                        |> Random.map (\g2 -> { g2 | story = g1.story ++ g2.story })
                                 )
             )
-            (Random.constant ( "", Just grammar ))
+            (Random.constant { grammar | story = "" })
