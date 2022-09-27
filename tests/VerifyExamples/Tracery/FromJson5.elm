@@ -13,33 +13,29 @@ import Json.Decode
 
 
 
-generate : String -> String
-generate json =
+generate : Int -> String -> String
+generate seed json =
     json
         |> Tracery.fromJson
         |> Result.Extra.unpack
             Json.Decode.errorToString
             (\generator ->
-                Random.step generator seed
+                Random.step generator (Random.initialSeed seed)
                     |> Tuple.first
             )
-seed : Random.Seed
-seed =
-    Random.initialSeed 40
 
 
 
 spec5 : Test.Test
 spec5 =
-    Test.test "#fromJson: \n\n    \"\"\"\n    { \"origin\": \"The \\\\\\\\# and \\\\\\\\\\\\\\\\ characters need to be escaped.\"}\n    \"\"\"\n    |> generate\n    |> Debug.log \"exposing\"\n    --> \"The # and \\\\ characters need to be escaped.\"" <|
+    Test.test "#fromJson: \n\n    \"\"\"\n    { \"origin\": \"The \\\\\\\\# and \\\\\\\\\\\\\\\\ characters need to be escaped.\"}\n    \"\"\"\n    |> generate 42\n    --> \"The # and \\\\ characters need to be escaped.\"" <|
         \() ->
             Expect.equal
                 (
                 """
                 { "origin": "The \\\\# and \\\\\\\\ characters need to be escaped."}
                 """
-                |> generate
-                |> Debug.log "exposing"
+                |> generate 42
                 )
                 (
                 "The # and \\ characters need to be escaped."

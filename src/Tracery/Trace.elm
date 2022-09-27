@@ -1,4 +1,4 @@
-module Tracery.Trace exposing (fillAll, holes, toString)
+module Tracery.Trace exposing (fillAll, holes, simplify, toString)
 
 import Tracery.Syntax exposing (Expression(..))
 
@@ -27,6 +27,27 @@ fillAll fun =
                 _ ->
                     exp |> List.singleton
         )
+
+
+simplify : List Expression -> List Expression
+simplify list =
+    case list of
+        [] ->
+            []
+
+        head :: rest ->
+            rest
+                |> List.foldl
+                    (\exp ( h, l ) ->
+                        case ( exp, h ) of
+                            ( Print a, Print b ) ->
+                                ( Print (b ++ a), l )
+
+                            _ ->
+                                ( exp, h :: l )
+                    )
+                    ( head, [] )
+                |> (\( a, b ) -> a :: b)
 
 
 toString : (String -> String) -> List Expression -> String

@@ -20,6 +20,7 @@ import Tracery.Trace
 -}
 type alias Grammar =
     { story : List Expression
+    , stack : List Expression
     , next : Maybe Expression
     , constants : Dict String (List Expression)
     , definitions : Dict String Definition
@@ -39,6 +40,7 @@ withSyntax syntax grammar =
 fromSyntax : Syntax -> Grammar
 fromSyntax syntax =
     { story = []
+    , stack = []
     , next = Just (Insert Tracery.Syntax.originString)
     , constants = Dict.empty
     , definitions = syntax
@@ -54,8 +56,13 @@ withTrace trace grammar =
         head :: tail ->
             { grammar
                 | next = Just head
-                , story = grammar.story ++ tail
+                , stack = tail
             }
+
+
+toNext : Grammar -> Grammar
+toNext grammar =
+    grammar |> withTrace grammar.stack
 
 
 generate : Grammar -> Generator String
@@ -66,21 +73,27 @@ generate grammar =
 
 generateTrace : Grammar -> Generator (List Expression)
 generateTrace grammar =
-    generateStory grammar
-        |> Random.andThen
-            (\g ->
-                if g.next == Nothing then
-                    Random.constant g.story
-
-                else
-                    g
-                        |> withTrace g.story
-                        |> generateTrace
-            )
+    grammar
+        |> generateStory
+        |> Random.map .story
 
 
 generateStory : Grammar -> Generator Grammar
 generateStory grammar =
+    generateNext grammar
+        |> Random.andThen
+            (\g ->
+                if g.next == Nothing then
+                    Random.constant g
+
+                else
+                    g
+                        |> generateStory
+            )
+
+
+generateNext : Grammar -> Generator Grammar
+generateNext grammar =
     (case grammar.next of
         Just next ->
             case next of
@@ -96,24 +109,26 @@ generateStory grammar =
 
                                             head :: tail ->
                                                 Random.uniform head tail
-                                                    |> Random.andThen (generateSentence { grammar | story = [] })
-                                                    |> Random.map (\g -> { g | story = grammar.story ++ g.story })
+                                                    |> Random.map (\stack -> { grammar | stack = stack ++ grammar.stack })
 
-                                    Let sentence ->
+                                    Let statement ->
                                         case grammar.constants |> Dict.get k0 of
-                                            Just trace ->
-                                                Random.constant { grammar | story = grammar.story ++ trace }
+                                            Just stack ->
+                                                { grammar | stack = stack ++ grammar.stack }
+                                                    |> Random.constant
 
                                             Nothing ->
-                                                sentence
-                                                    |> generateSentence { grammar | story = [] }
+                                                { grammar | story = [] }
+                                                    |> withTrace statement
+                                                    |> generateStory
                                                     |> Random.map
                                                         (\g ->
-                                                            { g | story = grammar.story ++ g.story }
-                                                                |> mapConstants
-                                                                    (g.story
-                                                                        |> Dict.insert k0
-                                                                    )
+                                                            { grammar
+                                                                | stack = g.story ++ grammar.stack
+                                                                , constants =
+                                                                    g.constants
+                                                                        |> Dict.insert k0 g.story
+                                                            }
                                                         )
 
                                     With subDefinitions ->
@@ -127,8 +142,15 @@ generateStory grammar =
                                             |> generateStory
                                             |> Random.map
                                                 (\g ->
-                                                    { g | story = grammar.story ++ g.story }
-                                                        |> mapConstants (Dict.insert k0 g.story)
+                                                    { grammar
+                                                        | story = grammar.story ++ g.story
+                                                        , definitions =
+                                                            grammar.definitions
+                                                                |> Dict.union g.definitions
+                                                        , constants =
+                                                            grammar.constants
+                                                                |> Dict.insert k0 g.story
+                                                    }
                                                 )
                             )
                         |> Maybe.withDefault (Random.constant { grammar | story = [ "error: " ++ k0 ++ " does not exist" |> Print ] })
@@ -139,19 +161,4 @@ generateStory grammar =
         Nothing ->
             Random.constant grammar
     )
-        |> Random.map (\g -> { g | next = Nothing })
-
-
-generateSentence : Grammar -> List Expression -> Generator Grammar
-generateSentence grammar sentence =
-    sentence
-        |> List.foldl
-            (\exp generator ->
-                generator
-                    |> Random.andThen
-                        (\g1 ->
-                            generateStory { g1 | story = [], next = Just exp }
-                                |> Random.map (\g2 -> { g2 | story = g1.story ++ g2.story })
-                        )
-            )
-            (Random.constant { grammar | story = [] })
+        |> Random.map (\g -> { g | story = Tracery.Trace.simplify g.story } |> toNext)

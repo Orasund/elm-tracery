@@ -22,18 +22,14 @@ import Tracery.Syntax exposing (Definition(..), Expression(..), Syntax)
     import Random
     import Result.Extra
 
-    seed : Random.Seed
-    seed =
-        Random.initialSeed 40
-
-    generate : String -> String
-    generate json =
+    generate : Int -> String -> String
+    generate seed json =
         json
             |> Tracery.fromJson
             |> Result.Extra.unpack
                 Json.Decode.errorToString
                 (\generator ->
-                    Random.step generator seed
+                    Random.step generator (Random.initialSeed seed)
                         |> Tuple.first
                 )
 
@@ -44,53 +40,60 @@ The `#` and `\` characters need to be escaped.
     """
     { "origin": "The \\\\# and \\\\\\\\ characters need to be escaped."}
     """
-    |> generate
-    |> Debug.log "exposing"
+    |> generate 42
     --> "The # and \\ characters need to be escaped."
+
+If you provide a list, tracer will tick an element at random.
+
+    """
+    { "origin": ["I like cats","I like dogs"]}
+    """
+    |> generate 42
+    --> "I like cats"
 
 You can reference other fields using `#..#`
 
     """
-    { "origin": "I have two pets: a #pet# and a #pet#"
+    { "origin": ["I have two pets: a #pet# and a #pet#"]
     , "pet": ["cat","dog","fish","parrot"]
     }
     """
-    |> generate
-    --> "I have two pets: a fish and a cat"
+    |> generate 42
+    --> "I have two pets: a dog and a cat"
 
 Definitions may also be recursive.
 
     """
-    { "origin": "I have #pets#"
+    { "origin": ["I have #pets#"]
     , "pets": ["a #pet#","a #pet# and #pets#"]
     , "pet": ["cat","dog","fish","parrot"]
     }
     """
-    |> generate
-    --> "I have a cat and a dog"
+    |> generate 20
+    --> "I have a fish and a cat and a dog"
 
 You can define constants by providing a string instead of a list.
 
     """
-    { "origin": "My #favoritePet# is the best #favoritePet# in the world"
+    { "origin": ["My #favoritePet# is the best #favoritePet# in the world"]
     , "favoritePet" : "#pet#"
     , "pet": ["cat","dog","fish","parrot"]
     }
     """
-    |> generate
-    --> "My fish is the best fish in the world"
+    |> generate 42
+    --> "My dog is the best dog in the world"
 
 However only one layer is constant.
 
     """
-    { "origin": "#petPraise# and #petPraise#"
+    { "origin": ["#petPraise# and #petPraise#"]
     , "petPraise": "#praise#"
     , "praise" : ["my dog loves to bark at #objects#","my cat loves to watch #objects#"]
     , "objects": [ "cars", "trees", "birds", "people" ]
     }
     """
-    |> generate
-    --> "my cat loves to watch cars and my cat loves to watch birds"
+    |> generate 43
+    -- "my cat loves to watch cars and my cat loves to watch birds"
 
 You may define sub-definitions to organize your definitions.
 
@@ -106,8 +109,8 @@ You may define sub-definitions to organize your definitions.
       }
     }
     """
-    |> generate
-    --> "My dog is named Athena"
+    |> generate 42
+    --> "My cat is named Cleopatra"
 
 -}
 fromJson : String -> Result Json.Decode.Error (Generator String)

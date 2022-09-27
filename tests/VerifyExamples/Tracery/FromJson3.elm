@@ -13,36 +13,32 @@ import Json.Decode
 
 
 
-generate : String -> String
-generate json =
+generate : Int -> String -> String
+generate seed json =
     json
         |> Tracery.fromJson
         |> Result.Extra.unpack
             Json.Decode.errorToString
             (\generator ->
-                Random.step generator seed
+                Random.step generator (Random.initialSeed seed)
                     |> Tuple.first
             )
-seed : Random.Seed
-seed =
-    Random.initialSeed 40
 
 
 
 spec3 : Test.Test
 spec3 =
-    Test.test "#fromJson: \n\n    \"\"\"\n    { \"origin\": \"I have #pets#\"\n    , \"pets\": [\"a #pet#\",\"a #pet# and #pets#\"]\n    , \"pet\": [\"cat\",\"dog\",\"fish\",\"parrot\"]\n    }\n    \"\"\"\n    |> generate\n    --> \"I have a cat and a dog\"" <|
+    Test.test "#fromJson: \n\n    \"\"\"\n    { \"origin\": [\"I have two pets: a #pet# and a #pet#\"]\n    , \"pet\": [\"cat\",\"dog\",\"fish\",\"parrot\"]\n    }\n    \"\"\"\n    |> generate 42\n    --> \"I have two pets: a dog and a cat\"" <|
         \() ->
             Expect.equal
                 (
                 """
-                { "origin": "I have #pets#"
-                , "pets": ["a #pet#","a #pet# and #pets#"]
+                { "origin": ["I have two pets: a #pet# and a #pet#"]
                 , "pet": ["cat","dog","fish","parrot"]
                 }
                 """
-                |> generate
+                |> generate 42
                 )
                 (
-                "I have a cat and a dog"
+                "I have two pets: a dog and a cat"
                 )

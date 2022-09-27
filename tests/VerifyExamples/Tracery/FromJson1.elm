@@ -13,37 +13,33 @@ import Json.Decode
 
 
 
-generate : String -> String
-generate json =
+generate : Int -> String -> String
+generate seed json =
     json
         |> Tracery.fromJson
         |> Result.Extra.unpack
             Json.Decode.errorToString
             (\generator ->
-                Random.step generator seed
+                Random.step generator (Random.initialSeed seed)
                     |> Tuple.first
             )
-seed : Random.Seed
-seed =
-    Random.initialSeed 40
 
 
 
 spec1 : Test.Test
 spec1 =
-    Test.test "#fromJson: \n\n    \"\"\"\n    { \"origin\": \"#petPraise# and #petPraise#\"\n    , \"petPraise\": \"#praise#\"\n    , \"praise\" : [\"my dog loves to bark at #objects#\",\"my cat loves to watch #objects#\"]\n    , \"objects\": [ \"cars\", \"trees\", \"birds\", \"people\" ]\n    }\n    \"\"\"\n    |> generate\n    --> \"my cat loves to watch cars and my cat loves to watch birds\"" <|
+    Test.test "#fromJson: \n\n    \"\"\"\n    { \"origin\": [\"My #favoritePet# is the best #favoritePet# in the world\"]\n    , \"favoritePet\" : \"#pet#\"\n    , \"pet\": [\"cat\",\"dog\",\"fish\",\"parrot\"]\n    }\n    \"\"\"\n    |> generate 42\n    --> \"My dog is the best dog in the world\"" <|
         \() ->
             Expect.equal
                 (
                 """
-                { "origin": "#petPraise# and #petPraise#"
-                , "petPraise": "#praise#"
-                , "praise" : ["my dog loves to bark at #objects#","my cat loves to watch #objects#"]
-                , "objects": [ "cars", "trees", "birds", "people" ]
+                { "origin": ["My #favoritePet# is the best #favoritePet# in the world"]
+                , "favoritePet" : "#pet#"
+                , "pet": ["cat","dog","fish","parrot"]
                 }
                 """
-                |> generate
+                |> generate 42
                 )
                 (
-                "my cat loves to watch cars and my cat loves to watch birds"
+                "My dog is the best dog in the world"
                 )

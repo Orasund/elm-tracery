@@ -22,11 +22,9 @@ seed =
     Random.initialSeed 41
 
 """
-{ "origin":"I have a #favoriteAnimal# named #favoriteAnimalName# and a #animal# named #name#. I love #favoriteAnimalName# the most. It's the best #favoriteAnimal# in the world."
-, "favoriteAnimal" : 
-  { "origin":"#color# #animal#"
-  , "color": ["white","black","brown"]
-  }
+{ "origin":["I have a #favoriteAnimal# named #favoriteAnimalName# and a #animal# named #name#. I love #favoriteAnimalName# the most. It's the best #favoriteAnimal# in the world."]
+, "favoriteAnimal" : "#color# #animal#"
+, "color": ["white","black","brown"]
 , "favoriteAnimalName" : "#name#"
 , "animal":["cat","dog","parrot"]
 , "name": ["Johnny","Charlie","Twinkle","Charles"]
@@ -40,7 +38,7 @@ seed =
             Random.step generator seed
             |> Tuple.first
     )
---> "I have a black dog named Johnny and a parrot named Charles. I love Johnny the most. It's the best black dog in the world."
+--> "I have a black cat named Charles and a parrot named Charlie. I love Charles the most. It's the best black cat in the world."
 ```
 
 ## Differences to the original Tracery

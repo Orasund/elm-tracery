@@ -13,25 +13,22 @@ import Json.Decode
 
 
 
-generate : String -> String
-generate json =
+generate : Int -> String -> String
+generate seed json =
     json
         |> Tracery.fromJson
         |> Result.Extra.unpack
             Json.Decode.errorToString
             (\generator ->
-                Random.step generator seed
+                Random.step generator (Random.initialSeed seed)
                     |> Tuple.first
             )
-seed : Random.Seed
-seed =
-    Random.initialSeed 40
 
 
 
 spec0 : Test.Test
 spec0 =
-    Test.test "#fromJson: \n\n    \"\"\"\n    { \"origin\": [\"My #cat#\",\"My #dog#\"]\n    , \"cat\":\n      { \"origin\":\"cat is named #name#\"\n      , \"name\": [\"Cleopatra\",\"Cesar\"]\n      }\n    , \"dog\":\n      { \"origin\":\"dog is named #name#\"\n      , \"name\": [\"Athena\",\"Zeus\"]\n      }\n    }\n    \"\"\"\n    |> generate\n    --> \"My dog is named Athena\"" <|
+    Test.test "#fromJson: \n\n    \"\"\"\n    { \"origin\": [\"My #cat#\",\"My #dog#\"]\n    , \"cat\":\n      { \"origin\":\"cat is named #name#\"\n      , \"name\": [\"Cleopatra\",\"Cesar\"]\n      }\n    , \"dog\":\n      { \"origin\":\"dog is named #name#\"\n      , \"name\": [\"Athena\",\"Zeus\"]\n      }\n    }\n    \"\"\"\n    |> generate 42\n    --> \"My cat is named Cleopatra\"" <|
         \() ->
             Expect.equal
                 (
@@ -47,8 +44,8 @@ spec0 =
                   }
                 }
                 """
-                |> generate
+                |> generate 42
                 )
                 (
-                "My dog is named Athena"
+                "My cat is named Cleopatra"
                 )
