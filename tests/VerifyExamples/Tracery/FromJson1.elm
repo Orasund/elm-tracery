@@ -31,22 +31,19 @@ seed =
 
 spec1 : Test.Test
 spec1 =
-    Test.test "#fromJson: \n\n    \"\"\"\n    { \"origin\": \"#sentence# and #sentence#\"\n    , \"sentence\":\n        [ \"my #favoritePet# is better than my neighbors #pet#\"\n        , \"my #favoritePet# is worse than my neighbors #pet#\"\n        ]\n    , \"favoritePet\": \"#pet#\"\n    , \"pet\": [\"cat\",\"dog\",\"fish\",\"parrot\"]\n    }\n    \"\"\"\n    |> generate\n    --> \"my cat is worse than my neighbors dog and my cat is better than my neighbors parrot\"" <|
+    Test.test "#fromJson: \n\n    \"\"\"\n    { \"origin\": \"#petPraise# and #petPraise#\"\n    , \"petPraise\": \"#praise#\"\n    , \"praise\" : [\"my dog loves to bark at #objects#\",\"my cat loves to watch #objects#\"]\n    , \"objects\": [ \"cars\", \"trees\", \"birds\", \"people\" ]\n    }\n    \"\"\"\n    |> generate\n    --> \"my cat loves to watch cars and my cat loves to watch birds\"" <|
         \() ->
             Expect.equal
                 (
                 """
-                { "origin": "#sentence# and #sentence#"
-                , "sentence":
-                    [ "my #favoritePet# is better than my neighbors #pet#"
-                    , "my #favoritePet# is worse than my neighbors #pet#"
-                    ]
-                , "favoritePet": "#pet#"
-                , "pet": ["cat","dog","fish","parrot"]
+                { "origin": "#petPraise# and #petPraise#"
+                , "petPraise": "#praise#"
+                , "praise" : ["my dog loves to bark at #objects#","my cat loves to watch #objects#"]
+                , "objects": [ "cars", "trees", "birds", "people" ]
                 }
                 """
                 |> generate
                 )
                 (
-                "my cat is worse than my neighbors dog and my cat is better than my neighbors parrot"
+                "my cat loves to watch cars and my cat loves to watch birds"
                 )

@@ -83,17 +83,14 @@ You can define constants by providing a string instead of a list.
 However only one layer is constant.
 
     """
-    { "origin": "#sentence# and #sentence#"
-    , "sentence":
-        [ "my #favoritePet# is better than my neighbors #pet#"
-        , "my #favoritePet# is worse than my neighbors #pet#"
-        ]
-    , "favoritePet": "#pet#"
-    , "pet": ["cat","dog","fish","parrot"]
+    { "origin": "#petPraise# and #petPraise#"
+    , "petPraise": "#praise#"
+    , "praise" : ["my dog loves to bark at #objects#","my cat loves to watch #objects#"]
+    , "objects": [ "cars", "trees", "birds", "people" ]
     }
     """
     |> generate
-    --> "my cat is worse than my neighbors dog and my cat is better than my neighbors parrot"
+    --> "my cat loves to watch cars and my cat loves to watch birds"
 
 You may define sub-definitions to organize your definitions.
 
