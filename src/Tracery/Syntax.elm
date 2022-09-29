@@ -22,13 +22,13 @@ import Set
 
 {-| The expressions always return a string
 
-  - `Print` - just return the given string
-  - `Insert` - look up the key and insert a generated string according to the definition of the key.
+  - `Value` - just return the given string
+  - `Variable` - look up the key and insert a generated string according to the definition of the key.
 
 -}
 type Expression
-    = Print String
-    | Insert String
+    = Value String
+    | Variable String
 
 
 {-| The definition specifies how the strings gets generated
@@ -134,10 +134,10 @@ isValid oldKeys dict =
                                             |> List.filterMap
                                                 (\exp ->
                                                     case exp of
-                                                        Print _ ->
+                                                        Value _ ->
                                                             Nothing
 
-                                                        Insert key ->
+                                                        Variable key ->
                                                             Just key
                                                 )
                                     )
@@ -148,10 +148,10 @@ isValid oldKeys dict =
                                 |> List.filterMap
                                     (\exp ->
                                         case exp of
-                                            Print _ ->
+                                            Value _ ->
                                                 Nothing
 
-                                            Insert key ->
+                                            Variable key ->
                                                 Just key
                                     )
                                 |> List.singleton
@@ -167,6 +167,7 @@ isValid oldKeys dict =
 {-|
 
     import Dict
+    import Tracery.Trace exposing (Command(..))
 
     input : String
     input =
@@ -184,21 +185,26 @@ isValid oldKeys dict =
         Dict.fromList
             [ ( "origin"
               , Choose
-                  [ [Print "Hello ", Print "\\", Print " World ",Print "#"]
-                  , [Insert "statement", Print " and ", Insert "statement"]
+                  [ [ (Value "Hello "),  (Value "\\"),  (Value " World "), (Value "#")]
+                  , [ (Variable "statement"),  (Value " and "),  (Variable "statement")]
                   ]
               )
             , ( "statement"
               , Dict.fromList
                   [ ( "origin"
-                    , Let [ Print "my ", Insert "myPet", Print " is the ", Insert "complement"]
+                    , [  (Value "my ")
+                      ,  (Variable "myPet")
+                      ,  (Value " is the ")
+                      ,  (Variable "complement")
+                      ]
+                        |> Let
                     )
-                  , ( "myPet",Let [Insert "pet"])
-                  , ( "pet", Choose [[Print "cat"],[Print "dog"]])
+                  , ( "myPet",Let [ (Variable "pet")])
+                  , ( "pet", Choose [[ (Value "cat")],[ (Value "dog")]])
                   , ( "complement"
                     , Choose
-                        [ [ Print "smartest ", Insert "myPet", Print " in the world"]
-                        , [ Print "fastest ", Insert "myPet", Print " that i know of"]
+                        [ [  (Value "smartest "),  (Variable "myPet"),  (Value " in the world")]
+                        , [  (Value "fastest "),  (Variable "myPet"),  (Value " that i know of")]
                         ]
                     )
                   ]
@@ -325,12 +331,12 @@ expressionParser =
     in
     Parser.oneOf
         [ variable
-            |> Parser.map Print
-        , Parser.succeed (Print "\\")
+            |> Parser.map Value
+        , Parser.succeed (Value "\\")
             |. Parser.token "\\\\"
-        , Parser.succeed (Print "#")
+        , Parser.succeed (Value "#")
             |. Parser.token "\\#"
-        , Parser.succeed Insert
+        , Parser.succeed Variable
             |. Parser.token "#"
             |= variable
             |. Parser.token "#"

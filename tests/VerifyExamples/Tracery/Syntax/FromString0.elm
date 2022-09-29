@@ -7,6 +7,7 @@ import Test
 import Expect
 
 import Tracery.Syntax exposing (..)
+import Tracery.Trace exposing (Command(..))
 import Dict
 
 
@@ -16,21 +17,26 @@ output =
     Dict.fromList
         [ ( "origin"
           , Choose
-              [ [Print "Hello ", Print "\\", Print " World ",Print "#"]
-              , [Insert "statement", Print " and ", Insert "statement"]
+              [ [ (Value "Hello "),  (Value "\\"),  (Value " World "), (Value "#")]
+              , [ (Variable "statement"),  (Value " and "),  (Variable "statement")]
               ]
           )
         , ( "statement"
           , Dict.fromList
               [ ( "origin"
-                , Let [ Print "my ", Insert "myPet", Print " is the ", Insert "complement"]
+                , [  (Value "my ")
+                  ,  (Variable "myPet")
+                  ,  (Value " is the ")
+                  ,  (Variable "complement")
+                  ]
+                    |> Let
                 )
-              , ( "myPet",Let [Insert "pet"])
-              , ( "pet", Choose [[Print "cat"],[Print "dog"]])
+              , ( "myPet",Let [ (Variable "pet")])
+              , ( "pet", Choose [[ (Value "cat")],[ (Value "dog")]])
               , ( "complement"
                 , Choose
-                    [ [ Print "smartest ", Insert "myPet", Print " in the world"]
-                    , [ Print "fastest ", Insert "myPet", Print " that i know of"]
+                    [ [  (Value "smartest "),  (Variable "myPet"),  (Value " in the world")]
+                    , [  (Value "fastest "),  (Variable "myPet"),  (Value " that i know of")]
                     ]
                 )
               ]

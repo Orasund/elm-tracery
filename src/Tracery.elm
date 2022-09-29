@@ -83,18 +83,6 @@ You can define constants by providing a string instead of a list.
     |> generate 42
     --> "My dog is the best dog in the world"
 
-However only one layer is constant.
-
-    """
-    { "origin": ["#petPraise# and #petPraise#"]
-    , "petPraise": "#praise#"
-    , "praise" : ["my dog loves to bark at #objects#","my cat loves to watch #objects#"]
-    , "objects": [ "cars", "trees", "birds", "people" ]
-    }
-    """
-    |> generate 43
-    -- "my cat loves to watch cars and my cat loves to watch birds"
-
 You may define sub-definitions to organize your definitions.
 
     """

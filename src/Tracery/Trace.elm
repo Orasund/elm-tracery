@@ -1,14 +1,26 @@
-module Tracery.Trace exposing (fillAll, holes, simplify, toString)
+module Tracery.Trace exposing (Command(..), fillAll, fromExpressions, holes, simplify, toString)
 
-import Tracery.Syntax exposing (Expression(..))
+import Dict exposing (Dict)
+import Tracery.Syntax exposing (Definition, Expression(..))
 
 
-holes : List Expression -> List String
+type Command
+    = Print Expression
+    | Define (Dict String Definition)
+    | Delete (List String)
+
+
+fromExpressions : List Expression -> List Command
+fromExpressions =
+    List.map Print
+
+
+holes : List Command -> List String
 holes =
     List.filterMap
         (\exp ->
             case exp of
-                Insert string ->
+                Print (Variable string) ->
                     Just string
 
                 _ ->
@@ -16,12 +28,12 @@ holes =
         )
 
 
-fillAll : (String -> List Expression) -> List Expression -> List Expression
+fillAll : (String -> List Command) -> List Command -> List Command
 fillAll fun =
     List.concatMap
         (\exp ->
             case exp of
-                Insert string ->
+                Print (Variable string) ->
                     fun string
 
                 _ ->
@@ -29,7 +41,7 @@ fillAll fun =
         )
 
 
-simplify : List Expression -> List Expression
+simplify : List Command -> List Command
 simplify list =
     case list of
         [] ->
@@ -40,8 +52,8 @@ simplify list =
                 |> List.foldl
                     (\exp ( h, l ) ->
                         case ( exp, h ) of
-                            ( Print a, Print b ) ->
-                                ( Print (b ++ a), l )
+                            ( Print (Value a), Print (Value b) ) ->
+                                ( (b ++ a) |> Value |> Print, l )
 
                             _ ->
                                 ( exp, h :: l )
@@ -50,16 +62,21 @@ simplify list =
                 |> (\( a, b ) -> a :: b)
 
 
-toString : (String -> String) -> List Expression -> String
+toString : (String -> String) -> List Command -> String
 toString fun list =
     list
         |> List.map
-            (\exp ->
-                case exp of
-                    Insert string ->
-                        fun string
+            (\cmd ->
+                case cmd of
+                    Print exp ->
+                        case exp of
+                            Variable string ->
+                                fun string
 
-                    Print string ->
-                        string
+                            Value string ->
+                                string
+
+                    _ ->
+                        ""
             )
         |> String.concat
