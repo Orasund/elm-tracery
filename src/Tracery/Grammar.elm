@@ -121,42 +121,37 @@ generateNext grammar =
                                                     |> Random.constant
 
                                             Nothing ->
-                                                { grammar | output = [] }
-                                                    |> withTrace (Tracery.Trace.fromExpressions statement)
-                                                    |> generateOutput
-                                                    |> Random.map
-                                                        (\g ->
-                                                            { grammar
-                                                                | stack = g.output ++ grammar.stack
-                                                                , constants =
-                                                                    g.constants
-                                                                        |> Dict.insert k0 g.output
-                                                            }
-                                                        )
+                                                Random.constant
+                                                    { grammar
+                                                        | output = []
+                                                        , stack =
+                                                            Tracery.Trace.fromExpressions statement
+                                                                ++ [ Save { asConstant = k0, replaceWith = grammar.output }
+                                                                   , Print (Variable k0)
+                                                                   ]
+                                                                ++ grammar.stack
+                                                    }
 
                                     With subDefinitions ->
-                                        subDefinitions
-                                            |> Dict.union
-                                                (grammar.definitions
-                                                    |> Dict.remove Tracery.Syntax.originString
-                                                )
-                                            |> fromSyntax
-                                            |> (\g -> { g | constants = grammar.constants })
-                                            |> generateOutput
-                                            |> Random.map
-                                                (\g ->
-                                                    { grammar
-                                                        | output = grammar.output ++ g.output
-                                                        , definitions =
-                                                            grammar.definitions
-                                                                |> Dict.union g.definitions
-                                                        , constants =
-                                                            grammar.constants
-                                                                |> Dict.insert k0 g.output
-                                                    }
-                                                )
+                                        Random.constant
+                                            { grammar
+                                                | stack =
+                                                    [ Tracery.Syntax.originString |> Variable |> Print
+                                                    , subDefinitions |> Dict.keys |> Delete
+                                                    ]
+                                                        ++ grammar.stack
+                                                , definitions =
+                                                    subDefinitions
+                                                        |> Dict.union
+                                                            (grammar.definitions
+                                                                |> Dict.remove Tracery.Syntax.originString
+                                                            )
+                                            }
                             )
-                        |> Maybe.withDefault (Random.constant { grammar | output = [ "error: " ++ k0 ++ " does not exist" |> Value |> Print ] })
+                        |> Maybe.withDefault
+                            ({ grammar | output = [ "error: " ++ k0 ++ " does not exist" |> Value |> Print ] }
+                                |> Random.constant
+                            )
 
                 Print (Value string) ->
                     Random.constant { grammar | output = grammar.output ++ [ string |> Value |> Print ] }
@@ -167,6 +162,13 @@ generateNext grammar =
 
                 Delete list ->
                     { grammar | definitions = list |> List.foldl Dict.remove grammar.definitions }
+                        |> Random.constant
+
+                Save { asConstant, replaceWith } ->
+                    { grammar
+                        | constants = grammar.constants |> Dict.insert asConstant grammar.output
+                        , output = replaceWith
+                    }
                         |> Random.constant
 
         Nothing ->

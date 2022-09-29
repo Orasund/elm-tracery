@@ -1,6 +1,7 @@
 module Tracery.Trace exposing (Command(..), fillAll, fromExpressions, holes, simplify, toString)
 
 import Dict exposing (Dict)
+import Random exposing (Generator)
 import Tracery.Syntax exposing (Definition, Expression(..))
 
 
@@ -8,6 +9,7 @@ type Command
     = Print Expression
     | Define (Dict String Definition)
     | Delete (List String)
+    | Save { asConstant : String, replaceWith : List Command }
 
 
 fromExpressions : List Expression -> List Command
@@ -28,17 +30,23 @@ holes =
         )
 
 
-fillAll : (String -> List Command) -> List Command -> List Command
+fillAll : (String -> Generator (List Command)) -> List Command -> Generator (List Command)
 fillAll fun =
-    List.concatMap
+    List.foldl
         (\exp ->
-            case exp of
-                Print (Variable string) ->
-                    fun string
+            Random.andThen
+                (\list ->
+                    (case exp of
+                        Print (Variable string) ->
+                            fun string
 
-                _ ->
-                    exp |> List.singleton
+                        _ ->
+                            exp |> List.singleton |> Random.constant
+                    )
+                        |> Random.map (\e -> list ++ e)
+                )
         )
+        (Random.constant [])
 
 
 simplify : List Command -> List Command
