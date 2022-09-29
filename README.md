@@ -34,8 +34,8 @@ seed =
 |> (\result ->
     case result of
         Err err -> Json.Decode.errorToString err
-        Ok generator ->
-            Random.step generator seed
+        Ok grammar ->
+            Random.step (Tracery.run grammar) seed
             |> Tuple.first
     )
 --> "I have a black cat named Charles and a parrot named Charlie. I love Charles the most. It's the best black cat in the world."

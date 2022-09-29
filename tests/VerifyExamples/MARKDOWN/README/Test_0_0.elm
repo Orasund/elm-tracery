@@ -20,7 +20,7 @@ seed =
 
 spec0 : Test.Test
 spec0 =
-    Test.test "Documentation VerifyExamples: \n\n    \"\"\"\n    { \"origin\":[\"I have a #favoriteAnimal# named #favoriteAnimalName# and a #animal# named #name#. I love #favoriteAnimalName# the most. It's the best #favoriteAnimal# in the world.\"]\n    , \"favoriteAnimal\" : \"#color# #animal#\"\n    , \"color\": [\"white\",\"black\",\"brown\"]\n    , \"favoriteAnimalName\" : \"#name#\"\n    , \"animal\":[\"cat\",\"dog\",\"parrot\"]\n    , \"name\": [\"Johnny\",\"Charlie\",\"Twinkle\",\"Charles\"]\n    }\n    \"\"\"\n    |> Tracery.fromJson\n    |> (\\result ->\n        case result of\n            Err err -> Json.Decode.errorToString err\n            Ok generator ->\n                Random.step generator seed\n                |> Tuple.first\n        )\n    --> \"I have a black cat named Charles and a parrot named Charlie. I love Charles the most. It's the best black cat in the world.\"" <|
+    Test.test "Documentation VerifyExamples: \n\n    \"\"\"\n    { \"origin\":[\"I have a #favoriteAnimal# named #favoriteAnimalName# and a #animal# named #name#. I love #favoriteAnimalName# the most. It's the best #favoriteAnimal# in the world.\"]\n    , \"favoriteAnimal\" : \"#color# #animal#\"\n    , \"color\": [\"white\",\"black\",\"brown\"]\n    , \"favoriteAnimalName\" : \"#name#\"\n    , \"animal\":[\"cat\",\"dog\",\"parrot\"]\n    , \"name\": [\"Johnny\",\"Charlie\",\"Twinkle\",\"Charles\"]\n    }\n    \"\"\"\n    |> Tracery.fromJson\n    |> (\\result ->\n        case result of\n            Err err -> Json.Decode.errorToString err\n            Ok grammar ->\n                Random.step (Tracery.run grammar) seed\n                |> Tuple.first\n        )\n    --> \"I have a black cat named Charles and a parrot named Charlie. I love Charles the most. It's the best black cat in the world.\"" <|
         \() ->
             Expect.equal
                 (
@@ -37,8 +37,8 @@ spec0 =
                 |> (\result ->
                     case result of
                         Err err -> Json.Decode.errorToString err
-                        Ok generator ->
-                            Random.step generator seed
+                        Ok grammar ->
+                            Random.step (Tracery.run grammar) seed
                             |> Tuple.first
                     )
                 )

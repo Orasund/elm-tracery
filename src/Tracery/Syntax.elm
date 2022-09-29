@@ -1,5 +1,5 @@
 module Tracery.Syntax exposing
-    ( Syntax, Expression(..), Definition(..)
+    ( Expression(..), Definition(..)
     , decoder, fromString, originString
     )
 
@@ -7,7 +7,7 @@ module Tracery.Syntax exposing
 
 Its intended to be used in combination with some preprocessing.
 
-@docs Syntax, Expression, Definition
+@docs Expression, Definition
 @docs decoder, fromString, originString
 
 -}
@@ -41,13 +41,7 @@ type Expression
 type Definition
     = Choose (List (List Expression))
     | Let (List Expression)
-    | With Syntax
-
-
-{-| The Syntax is just a dictionary of keys and their definition.
--}
-type alias Syntax =
-    Dict String Definition
+    | With (Dict String Definition)
 
 
 {-| The origin is the starting point for the generated story.
@@ -62,7 +56,7 @@ originString =
     "origin"
 
 
-isValid : List String -> Syntax -> Result String ()
+isValid : List String -> Dict String Definition -> Result String ()
 isValid oldKeys dict =
     let
         keys =
@@ -166,7 +160,7 @@ isValid oldKeys dict =
 
 {-|
 
-    import Dict
+    import Dict exposing (Dict)
     import Tracery.Trace exposing (Command(..))
 
     input : String
@@ -180,7 +174,7 @@ isValid oldKeys dict =
          }
        }"""
 
-    output : Syntax
+    output : Dict String Definition
     output =
         Dict.fromList
             [ ( "origin"
@@ -216,14 +210,14 @@ isValid oldKeys dict =
     --> Ok output
 
 -}
-fromString : String -> Result Json.Decode.Error Syntax
+fromString : String -> Result Json.Decode.Error (Dict String Definition)
 fromString =
     Json.Decode.decodeString decoder
 
 
 {-| Decoder for the Syntax.
 -}
-decoder : Json.Decode.Decoder Syntax
+decoder : Json.Decode.Decoder (Dict String Definition)
 decoder =
     Json.Value.decoder
         |> Json.Decode.andThen
@@ -241,7 +235,7 @@ decoder =
             )
 
 
-decodeSyntax : JsonValue -> Result String Syntax
+decodeSyntax : JsonValue -> Result String (Dict String Definition)
 decodeSyntax jsonValue =
     case jsonValue of
         ObjectValue list ->

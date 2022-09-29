@@ -1,10 +1,10 @@
-module Tracery exposing (fromJson, fromSyntax)
+module Tracery exposing (fromJson, run)
 
 {-| Tracery is a text-generation language mostly used for twitter bots.
 
 See [Tracery.io](www.tracery.io) for more information.
 
-@docs fromJson, fromSyntax
+@docs fromJson, run
 
 -}
 
@@ -12,8 +12,8 @@ import Json.Decode
 import Json.Value exposing (JsonValue(..))
 import Parser exposing ((|.), (|=))
 import Random exposing (Generator)
-import Tracery.Grammar
-import Tracery.Syntax exposing (Definition(..), Expression(..), Syntax)
+import Tracery.Grammar exposing (Grammar)
+import Tracery.Syntax exposing (Definition(..), Expression(..))
 
 
 {-| Turns a tracery json-string into a generator
@@ -28,8 +28,8 @@ import Tracery.Syntax exposing (Definition(..), Expression(..), Syntax)
             |> Tracery.fromJson
             |> Result.Extra.unpack
                 Json.Decode.errorToString
-                (\generator ->
-                    Random.step generator (Random.initialSeed seed)
+                (\grammar ->
+                    Random.step (Tracery.run grammar) (Random.initialSeed seed)
                         |> Tuple.first
                 )
 
@@ -101,14 +101,11 @@ You may define sub-definitions to organize your definitions.
     --> "My cat is named Cleopatra"
 
 -}
-fromJson : String -> Result Json.Decode.Error (Generator String)
+fromJson : String -> Result Json.Decode.Error Grammar
 fromJson string =
-    string |> Tracery.Syntax.fromString |> Result.map fromSyntax
+    string |> Tracery.Syntax.fromString |> Result.map Tracery.Grammar.fromSyntax
 
 
-{-| Creates a string generator based on a syntax.
--}
-fromSyntax : Syntax -> Generator String
-fromSyntax syntax =
-    Tracery.Grammar.fromSyntax syntax
-        |> Tracery.Grammar.generate
+run : Grammar -> Generator String
+run =
+    Tracery.Grammar.generate

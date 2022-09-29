@@ -19,8 +19,8 @@ generate seed json =
         |> Tracery.fromJson
         |> Result.Extra.unpack
             Json.Decode.errorToString
-            (\generator ->
-                Random.step generator (Random.initialSeed seed)
+            (\grammar ->
+                Random.step (Tracery.run grammar) (Random.initialSeed seed)
                     |> Tuple.first
             )
 

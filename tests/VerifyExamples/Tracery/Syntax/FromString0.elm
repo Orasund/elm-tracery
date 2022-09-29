@@ -8,11 +8,11 @@ import Expect
 
 import Tracery.Syntax exposing (..)
 import Tracery.Trace exposing (Command(..))
-import Dict
+import Dict exposing (Dict)
 
 
 
-output : Syntax
+output : Dict String Definition
 output =
     Dict.fromList
         [ ( "origin"

@@ -7,7 +7,7 @@ import Dict exposing (Dict)
 import Json.Value exposing (JsonValue(..))
 import Parser exposing ((|.), (|=))
 import Random exposing (Generator)
-import Tracery.Syntax exposing (Definition(..), Expression(..), Syntax)
+import Tracery.Syntax exposing (Definition(..), Expression(..))
 import Tracery.Trace exposing (Command(..))
 
 
@@ -32,12 +32,12 @@ mapConstants fun grammar =
     { grammar | constants = fun grammar.constants }
 
 
-withSyntax : Syntax -> Grammar -> Grammar
+withSyntax : Dict String Definition -> Grammar -> Grammar
 withSyntax syntax grammar =
     { grammar | definitions = syntax }
 
 
-fromSyntax : Syntax -> Grammar
+fromSyntax : Dict String Definition -> Grammar
 fromSyntax syntax =
     { output = []
     , stack = []
