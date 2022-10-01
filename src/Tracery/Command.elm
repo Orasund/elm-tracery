@@ -104,26 +104,38 @@ simplify list =
 {-| Turns the list of commands into a readable string
 -}
 toString : (String -> String) -> List Command -> String
-toString fun list =
-    list
-        |> List.foldl
-            (\cmd out ->
-                case cmd of
-                    Print exp ->
-                        case exp of
-                            Variable string ->
-                                out ++ fun string
+toString f l =
+    let
+        rec ( out, consts ) fun list =
+            case list of
+                [] ->
+                    out
 
-                            Value string ->
-                                out ++ string
+                cmd :: tail ->
+                    case cmd of
+                        Print exp ->
+                            case exp of
+                                Variable string ->
+                                    consts
+                                        |> Dict.get string
+                                        |> Maybe.withDefault (fun string)
+                                        |> (\s -> rec ( out ++ s, consts ) fun tail)
 
-                    Save { replaceWith } ->
-                        "[Save]" ++ toString fun replaceWith
+                                Value string ->
+                                    rec
+                                        ( out ++ string
+                                        , consts
+                                        )
+                                        fun
+                                        tail
 
-                    Define dict ->
-                        "[Define " ++ (Dict.keys dict |> String.join " ") ++ "]"
+                        Save { asConstant, replaceWith } ->
+                            rec ( "", consts |> Dict.insert asConstant out ) fun (replaceWith ++ tail)
 
-                    Delete l ->
-                        "[Delete " ++ String.join " " l ++ "]"
-            )
-            ""
+                        Define _ ->
+                            rec ( out, consts ) fun tail
+
+                        Delete _ ->
+                            rec ( out, consts ) fun tail
+    in
+    rec ( "", Dict.empty ) f l
