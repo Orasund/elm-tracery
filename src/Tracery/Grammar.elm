@@ -1,9 +1,8 @@
 module Tracery.Grammar exposing
-    ( Grammar, fromDefinitions
+    ( Grammar, fromDefinitions, toString
     , generateWhile, generateOutput, generateNext
     , Strategy, defaultStrategy, noRecursionStrategy, onlyRecursionStrategy
-    , toNext, withCommands
-    , end, rewind, toString
+    , toNext, withCommands, rewind, end
     )
 
 {-| Creates a string generator based on a syntax.
@@ -11,12 +10,12 @@ module Tracery.Grammar exposing
 
 # Grammar
 
-@docs Grammar, fromDefinitions
+@docs Grammar, fromDefinitions, toString
 
 
 # Generating
 
-@docs generateWhile, generateOutput, generateCommands, generateNext
+@docs generateWhile, generateOutput, generateNext
 
 
 # Strategy
@@ -26,7 +25,7 @@ module Tracery.Grammar exposing
 
 # Technical Utilities
 
-@docs toNext, withCommands
+@docs toNext, withCommands, rewind, end
 
 -}
 
@@ -87,6 +86,7 @@ end grammar =
                         |> Maybe.withDefault []
                    )
                 ++ grammar.stack
+                |> Tracery.Command.simplify
         , next = Nothing
         , stack = []
     }
@@ -136,7 +136,7 @@ generateWhile fun grammar =
     grammar
         |> generateOutput fun defaultStrategy
         |> Random.andThen
-            (while (\g -> fun g && Tracery.Command.holes g.output /= [])
+            (while (\g -> fun g && Tracery.Command.variables g.output /= [])
                 (\g ->
                     g
                         |> rewind

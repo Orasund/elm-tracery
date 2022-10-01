@@ -1,6 +1,6 @@
 module Tracery.Command exposing
     ( Command(..), simplify, toString
-    , fillAll, fromExpressions, holes
+    , fillAll, fromExpressions, variables
     )
 
 {-| Commands are used to be able to pause the execution of a Grammar.
@@ -9,7 +9,7 @@ By modifying the commands in a grammar you can directly change how the program s
 
 @docs Command, simplify, toString
 
-@docs fillAll, fromExpressions, holes
+@docs fillAll, fromExpressions, variables
 
 -}
 
@@ -18,6 +18,14 @@ import Random exposing (Generator)
 import Tracery.Syntax exposing (Definition, Expression(..))
 
 
+{-| Defines commands that the algorithm recognizes
+
+  - Print - print the expression to the output
+  - Define - Add a set of definitions
+  - Delete - Delete a set of definitions
+  - Save - saves the current value of the output as a constant and replaces it with a different value.
+
+-}
 type Command
     = Print Expression
     | Define (Dict String Definition)
@@ -25,13 +33,17 @@ type Command
     | Save { asConstant : String, replaceWith : List Command }
 
 
+{-| Convert expressions to commands
+-}
 fromExpressions : List Expression -> List Command
 fromExpressions =
     List.map Print
 
 
-holes : List Command -> List String
-holes =
+{-| Returns all variables.
+-}
+variables : List Command -> List String
+variables =
     List.filterMap
         (\exp ->
             case exp of
@@ -43,6 +55,8 @@ holes =
         )
 
 
+{-| replaces all variables
+-}
 fillAll : (String -> Generator (List Command)) -> List Command -> Generator (List Command)
 fillAll fun =
     List.foldl
@@ -62,9 +76,11 @@ fillAll fun =
         (Random.constant [])
 
 
+{-| simplifies the commands.
+-}
 simplify : List Command -> List Command
 simplify list =
-    case list of
+    (case list of
         [] ->
             []
 
@@ -81,8 +97,12 @@ simplify list =
                     )
                     ( head, [] )
                 |> (\( a, b ) -> a :: b)
+    )
+        |> List.reverse
 
 
+{-| Turns the list of commands into a readable string
+-}
 toString : (String -> String) -> List Command -> String
 toString fun list =
     list
@@ -100,10 +120,10 @@ toString fun list =
                     Save { replaceWith } ->
                         "[Save]" ++ toString fun replaceWith
 
-                    Define _ ->
-                        "[Define]"
+                    Define dict ->
+                        "[Define " ++ (Dict.keys dict |> String.join " ") ++ "]"
 
-                    Delete _ ->
-                        "[Delete]"
+                    Delete l ->
+                        "[Delete " ++ String.join " " l ++ "]"
             )
             ""
