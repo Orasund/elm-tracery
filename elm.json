@@ -3,11 +3,11 @@
     "name": "Orasund/elm-tracery",
     "summary": "Implementation of tracery in Elm. see tracery.io",
     "license": "BSD-3-Clause",
+    "version": "3.0.0",
     "exposed-modules": [
         "Tracery",
         "Tracery.Syntax"
     ],
-    "version": "2.0.0",
     "elm-version": "0.19.0 <= v < 0.20.0",
     "dependencies": {
         "elm/browser": "1.0.2 <= v < 2.0.0",

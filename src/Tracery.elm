@@ -1,10 +1,15 @@
-module Tracery exposing (fromJson, run)
+module Tracery exposing
+    ( fromJson, run, runTo
+    , step, stepNonRecursive, stepOnlyRecursive
+    )
 
 {-| Tracery is a text-generation language mostly used for twitter bots.
 
 See [Tracery.io](www.tracery.io) for more information.
 
-@docs fromJson, run
+@docs fromJson, run, runTo
+
+@docs step, stepNonRecursive, stepOnlyRecursive
 
 -}
 
@@ -12,8 +17,10 @@ import Json.Decode
 import Json.Value exposing (JsonValue(..))
 import Parser exposing ((|.), (|=))
 import Random exposing (Generator)
+import Set
 import Tracery.Grammar exposing (Grammar)
 import Tracery.Syntax exposing (Definition(..), Expression(..))
+import Tracery.Trace exposing (Command(..))
 
 
 {-| Turns a tracery json-string into a generator
@@ -103,9 +110,70 @@ You may define sub-definitions to organize your definitions.
 -}
 fromJson : String -> Result Json.Decode.Error Grammar
 fromJson string =
-    string |> Tracery.Syntax.fromString |> Result.map Tracery.Grammar.fromSyntax
+    string |> Tracery.Syntax.fromString |> Result.map Tracery.Grammar.fromDefinitions
 
 
+{-| Runs a grammar until it ends.
+
+Some recursive definitions might take a long time.
+
+Use `runTo` if you want to avoid long waiting times.
+
+-}
 run : Grammar -> Generator String
 run =
-    Tracery.Grammar.generate
+    Tracery.Grammar.generateWhile (\_ -> True)
+
+
+{-| Runs a grammar until it reaches a key in the list.
+-}
+runTo : List String -> Grammar -> Generator String
+runTo list =
+    let
+        set =
+            Set.fromList list
+    in
+    Tracery.Grammar.generateWhile
+        (\g ->
+            case g.next of
+                Just (Print (Variable string)) ->
+                    not (Set.member string set)
+
+                _ ->
+                    True
+        )
+
+
+{-| compute a single step.
+-}
+step : Grammar -> Generator Grammar
+step =
+    Tracery.Grammar.generateNext Tracery.Grammar.defaultStrategy
+
+
+{-| compute a single step.
+
+The algorithm will never choose a recursive option for any key in the given list.
+
+-}
+stepNonRecursive : List String -> Grammar -> Generator Grammar
+stepNonRecursive list =
+    list
+        |> Set.fromList
+        |> Tracery.Grammar.noRecursionStrategy
+        |> Tracery.Grammar.generateNext
+
+
+{-| compute a single step.
+
+The algorithm will always choose a recursive option for any key in the given list.
+
+If no such option exists, then the empty list will be used instead.
+
+-}
+stepOnlyRecursive : List String -> Grammar -> Generator Grammar
+stepOnlyRecursive list =
+    list
+        |> Set.fromList
+        |> Tracery.Grammar.onlyRecursionStrategy
+        |> Tracery.Grammar.generateNext

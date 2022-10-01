@@ -1,12 +1,40 @@
-module Tracery.Grammar exposing (..)
+module Tracery.Grammar exposing
+    ( Grammar, fromDefinitions
+    , generateWhile, generateOutput, generateNext
+    , Strategy, defaultStrategy, noRecursionStrategy, onlyRecursionStrategy
+    , toNext, withCommands
+    , generateCommands
+    )
 
 {-| Creates a string generator based on a syntax.
+
+
+# Grammar
+
+@docs Grammar, fromDefinitions
+
+
+# Generating
+
+@docs generateWhile, generateOutput, generateTrace, generateNext
+
+
+# Strategy
+
+@docs Strategy, defaultStrategy, noRecursionStrategy, onlyRecursionStrategy
+
+
+# Technical Utilities
+
+@docs toNext, withCommands
+
 -}
 
 import Dict exposing (Dict)
 import Json.Value exposing (JsonValue(..))
 import Parser exposing ((|.), (|=))
 import Random exposing (Generator)
+import Set exposing (Set)
 import Tracery.Syntax exposing (Definition(..), Expression(..))
 import Tracery.Trace exposing (Command(..))
 
@@ -27,18 +55,10 @@ type alias Grammar =
     }
 
 
-mapConstants : (Dict String (List Command) -> Dict String (List Command)) -> Grammar -> Grammar
-mapConstants fun grammar =
-    { grammar | constants = fun grammar.constants }
-
-
-withSyntax : Dict String Definition -> Grammar -> Grammar
-withSyntax syntax grammar =
-    { grammar | definitions = syntax }
-
-
-fromSyntax : Dict String Definition -> Grammar
-fromSyntax syntax =
+{-| Turns Definitions into a Grammar.
+-}
+fromDefinitions : Dict String Definition -> Grammar
+fromDefinitions syntax =
     { output = []
     , stack = []
     , next = Just (Print (Variable Tracery.Syntax.originString))
@@ -47,8 +67,10 @@ fromSyntax syntax =
     }
 
 
-withTrace : List Command -> Grammar -> Grammar
-withTrace trace grammar =
+{-| Sets Commands of a Grammar.
+-}
+withCommands : List Command -> Grammar -> Grammar
+withCommands trace grammar =
     case trace of
         [] ->
             { grammar | next = Nothing }
@@ -60,93 +82,81 @@ withTrace trace grammar =
             }
 
 
+{-| Moves to the next command without executing anything.
+
+    toNext : Grammar -> Grammar
+    toNext grammar =
+        grammar |> withCommands grammar.stack
+
+-}
 toNext : Grammar -> Grammar
 toNext grammar =
-    grammar |> withTrace grammar.stack
+    grammar |> withCommands grammar.stack
 
 
-generate : Grammar -> Generator String
-generate grammar =
-    generateTrace grammar
+{-| Generates a string while a predicate is valid
+-}
+generateWhile : (Grammar -> Bool) -> Grammar -> Generator String
+generateWhile fun grammar =
+    grammar
+        |> generateCommands fun defaultStrategy
         |> Random.map (Tracery.Trace.toString (\_ -> ""))
 
 
-generateTrace : Grammar -> Generator (List Command)
-generateTrace grammar =
+{-| Generates a set of commands.
+
+The output is not a string, because it still contains holes.
+
+The idea is to use `Tracery.Trace.toString` to fill these holes.
+
+-}
+generateCommands : (Grammar -> Bool) -> Strategy -> Grammar -> Generator (List Command)
+generateCommands fun strategy grammar =
     grammar
-        |> generateOutput
+        |> generateOutput fun strategy
         |> Random.map .output
 
 
-generateOutput : Grammar -> Generator Grammar
-generateOutput grammar =
-    generateNext grammar
+{-| Generates an output found in the resulting grammar.
+
+You can use `generateCommands` instead, If you intend to get the output right away.
+
+-}
+generateOutput : (Grammar -> Bool) -> Strategy -> Grammar -> Generator Grammar
+generateOutput fun strategy =
+    while (\g -> fun g && g.next /= Nothing)
+        (generateNext strategy)
+
+
+while : (Grammar -> Bool) -> (Grammar -> Generator Grammar) -> Grammar -> Generator Grammar
+while fun do init =
+    do init
         |> Random.andThen
             (\g ->
-                if g.next == Nothing then
-                    Random.constant g
+                if fun g then
+                    while fun do g
 
                 else
-                    g
-                        |> generateOutput
+                    Random.constant g
             )
 
 
-generateNext : Grammar -> Generator Grammar
-generateNext grammar =
+{-| Computes the command in `grammar.next`.
+
+Afterwards the next command gets loaded
+
+-}
+generateNext : Strategy -> Grammar -> Generator Grammar
+generateNext strategy grammar =
     (case grammar.next of
         Just next ->
             case next of
                 Print (Variable k0) ->
                     Dict.get k0 grammar.definitions
                         |> Maybe.map
-                            (\definition ->
-                                case definition of
-                                    Choose statements ->
-                                        case statements of
-                                            [] ->
-                                                Random.constant grammar
-
-                                            head :: tail ->
-                                                Random.uniform head tail
-                                                    |> Random.map
-                                                        (\stack ->
-                                                            { grammar | stack = Tracery.Trace.fromExpressions stack ++ grammar.stack }
-                                                        )
-
-                                    Let statement ->
-                                        case grammar.constants |> Dict.get k0 of
-                                            Just stack ->
-                                                { grammar | stack = stack ++ grammar.stack }
-                                                    |> Random.constant
-
-                                            Nothing ->
-                                                Random.constant
-                                                    { grammar
-                                                        | output = []
-                                                        , stack =
-                                                            Tracery.Trace.fromExpressions statement
-                                                                ++ [ Save { asConstant = k0, replaceWith = grammar.output }
-                                                                   , Print (Variable k0)
-                                                                   ]
-                                                                ++ grammar.stack
-                                                    }
-
-                                    With subDefinitions ->
-                                        Random.constant
-                                            { grammar
-                                                | stack =
-                                                    [ Tracery.Syntax.originString |> Variable |> Print
-                                                    , subDefinitions |> Dict.keys |> Delete
-                                                    ]
-                                                        ++ grammar.stack
-                                                , definitions =
-                                                    subDefinitions
-                                                        |> Dict.union
-                                                            (grammar.definitions
-                                                                |> Dict.remove Tracery.Syntax.originString
-                                                            )
-                                            }
+                            (generateFromDefinition k0
+                                grammar
+                                strategy
                             )
                         |> Maybe.withDefault
                             ({ grammar | output = [ "error: " ++ k0 ++ " does not exist" |> Value |> Print ] }
@@ -175,3 +185,112 @@ generateNext grammar =
             Random.constant grammar
     )
         |> Random.map (\g -> { g | output = Tracery.Trace.simplify g.output } |> toNext)
+
+
+generateFromDefinition :
+    String
+    -> Grammar
+    -> Strategy
+    -> Definition
+    -> Generator Grammar
+generateFromDefinition k0 grammar strategy definition =
+    case definition of
+        Choose statements ->
+            (case List.filter (strategy k0) statements of
+                [] ->
+                    Random.constant []
+
+                head :: tail ->
+                    Random.uniform head tail
+            )
+                |> Random.map
+                    (\stack ->
+                        { grammar | stack = Tracery.Trace.fromExpressions stack ++ grammar.stack }
+                    )
+
+        Let statement ->
+            case grammar.constants |> Dict.get k0 of
+                Just stack ->
+                    { grammar | stack = stack ++ grammar.stack }
+                        |> Random.constant
+
+                Nothing ->
+                    Random.constant
+                        { grammar
+                            | output = []
+                            , stack =
+                                Tracery.Trace.fromExpressions statement
+                                    ++ [ Save { asConstant = k0, replaceWith = grammar.output }
+                                       , Print (Variable k0)
+                                       ]
+                                    ++ grammar.stack
+                        }
+
+        With subDefinitions ->
+            Random.constant
+                { grammar
+                    | stack =
+                        [ Tracery.Syntax.originString |> Variable |> Print
+                        , subDefinitions |> Dict.keys |> Delete
+                        ]
+                            ++ grammar.stack
+                    , definitions =
+                        subDefinitions
+                            |> Dict.union
+                                (grammar.definitions
+                                    |> Dict.remove Tracery.Syntax.originString
+                                )
+                }
+
+
+
+-----------------------------------------------------------------------------------------------------
+-- Strategies
+-----------------------------------------------------------------------------------------------------
+
+
+{-| The strategy specifies the algorithm to choose an option
+-}
+type alias Strategy =
+    String -> List Expression -> Bool
+
+
+{-| This strategy will never choose a recursive option
+-}
+noRecursionStrategy : Set String -> Strategy
+noRecursionStrategy set key list =
+    Set.member key set
+        && List.all
+            (\exp ->
+                case exp of
+                    Value _ ->
+                        True
+
+                    Variable string ->
+                        key /= string
+            )
+            list
+
+
+{-| This strategy will only chose recursive options
+-}
+onlyRecursionStrategy : Set String -> Strategy
+onlyRecursionStrategy set key list =
+    Set.member key set
+        && List.any
+            (\exp ->
+                case exp of
+                    Value _ ->
+                        True
+
+                    Variable string ->
+                        key == string
+            )
+            list
+
+
+{-| This strategy will choose any option
+-}
+defaultStrategy : Strategy
+defaultStrategy _ _ =
+    True
