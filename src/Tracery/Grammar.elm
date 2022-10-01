@@ -3,7 +3,7 @@ module Tracery.Grammar exposing
     , generateWhile, generateOutput, generateNext
     , Strategy, defaultStrategy, noRecursionStrategy, onlyRecursionStrategy
     , toNext, withCommands
-    , generateCommands
+    , end, rewind, toString
     )
 
 {-| Creates a string generator based on a syntax.
@@ -16,7 +16,7 @@ module Tracery.Grammar exposing
 
 # Generating
 
-@docs generateWhile, generateOutput, generateTrace, generateNext
+@docs generateWhile, generateOutput, generateCommands, generateNext
 
 
 # Strategy
@@ -32,11 +32,10 @@ module Tracery.Grammar exposing
 
 import Dict exposing (Dict)
 import Json.Value exposing (JsonValue(..))
-import Parser exposing ((|.), (|=))
 import Random exposing (Generator)
 import Set exposing (Set)
+import Tracery.Command exposing (Command(..))
 import Tracery.Syntax exposing (Definition(..), Expression(..))
-import Tracery.Trace exposing (Command(..))
 
 
 {-|
@@ -65,6 +64,42 @@ fromDefinitions syntax =
     , constants = Dict.empty
     , definitions = syntax
     }
+
+
+{-| sets the output as input.
+-}
+rewind : Grammar -> Grammar
+rewind grammar =
+    grammar
+        |> end
+        |> (\g -> { g | output = [] } |> withCommands g.output)
+
+
+{-| set the remaining commands as output
+-}
+end : Grammar -> Grammar
+end grammar =
+    { grammar
+        | output =
+            grammar.output
+                ++ (grammar.next
+                        |> Maybe.map List.singleton
+                        |> Maybe.withDefault []
+                   )
+                ++ grammar.stack
+        , next = Nothing
+        , stack = []
+    }
+
+
+{-| Prints the Grammar
+-}
+toString : ({ variable : String } -> String) -> Grammar -> String
+toString fun grammar =
+    grammar
+        |> end
+        |> .output
+        |> Tracery.Command.toString (\variable -> fun { variable = variable })
 
 
 {-| Sets Commands of a Grammar.
@@ -96,25 +131,18 @@ toNext grammar =
 
 {-| Generates a string while a predicate is valid
 -}
-generateWhile : (Grammar -> Bool) -> Grammar -> Generator String
+generateWhile : (Grammar -> Bool) -> Grammar -> Generator Grammar
 generateWhile fun grammar =
     grammar
-        |> generateCommands fun defaultStrategy
-        |> Random.map (Tracery.Trace.toString (\_ -> ""))
-
-
-{-| Generates a set of commands.
-
-The output is not a string, because it still contains holes.
-
-The idea is to use `Tracery.Trace.toString` to fill these holes.
-
--}
-generateCommands : (Grammar -> Bool) -> Strategy -> Grammar -> Generator (List Command)
-generateCommands fun strategy grammar =
-    grammar
-        |> generateOutput fun strategy
-        |> Random.map .output
+        |> generateOutput fun defaultStrategy
+        |> Random.andThen
+            (while (\g -> fun g && Tracery.Command.holes g.output /= [])
+                (\g ->
+                    g
+                        |> rewind
+                        |> generateOutput fun defaultStrategy
+                )
+            )
 
 
 {-| Generates an output found in the resulting grammar.
@@ -125,7 +153,18 @@ You can use `generateCommands` instead, If you intend to get the output right aw
 generateOutput : (Grammar -> Bool) -> Strategy -> Grammar -> Generator Grammar
 generateOutput fun strategy =
     while (\g -> fun g && g.next /= Nothing)
-        (generateNext strategy)
+        (\g ->
+            let
+                _ =
+                    g
+                        |> end
+                        |> .output
+                        |> Tracery.Command.toString (\var -> "[var " ++ var ++ "]")
+                        |> Debug.log "output"
+            in
+            g
+                |> generateNext strategy
+        )
 
 
 while : (Grammar -> Bool) -> (Grammar -> Generator Grammar) -> Grammar -> Generator Grammar
@@ -184,7 +223,7 @@ generateNext strategy grammar =
         Nothing ->
             Random.constant grammar
     )
-        |> Random.map (\g -> { g | output = Tracery.Trace.simplify g.output } |> toNext)
+        |> Random.map (\g -> { g | output = Tracery.Command.simplify g.output } |> toNext)
 
 
 generateFromDefinition :
@@ -205,13 +244,13 @@ generateFromDefinition k0 grammar strategy definition =
             )
                 |> Random.map
                     (\stack ->
-                        { grammar | stack = Tracery.Trace.fromExpressions stack ++ grammar.stack }
+                        { grammar | stack = Tracery.Command.fromExpressions stack ++ grammar.stack }
                     )
 
         Let statement ->
             case grammar.constants |> Dict.get k0 of
                 Just stack ->
-                    { grammar | stack = stack ++ grammar.stack }
+                    { grammar | output = grammar.output ++ stack }
                         |> Random.constant
 
                 Nothing ->
@@ -219,7 +258,7 @@ generateFromDefinition k0 grammar strategy definition =
                         { grammar
                             | output = []
                             , stack =
-                                Tracery.Trace.fromExpressions statement
+                                Tracery.Command.fromExpressions statement
                                     ++ [ Save { asConstant = k0, replaceWith = grammar.output }
                                        , Print (Variable k0)
                                        ]

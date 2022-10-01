@@ -1,6 +1,7 @@
 module Tracery exposing
     ( fromJson, run, runTo
     , step, stepNonRecursive, stepOnlyRecursive
+    , toString
     )
 
 {-| Tracery is a text-generation language mostly used for twitter bots.
@@ -18,9 +19,9 @@ import Json.Value exposing (JsonValue(..))
 import Parser exposing ((|.), (|=))
 import Random exposing (Generator)
 import Set
+import Tracery.Command exposing (Command(..))
 import Tracery.Grammar exposing (Grammar)
 import Tracery.Syntax exposing (Definition(..), Expression(..))
-import Tracery.Trace exposing (Command(..))
 
 
 {-| Turns a tracery json-string into a generator
@@ -121,13 +122,55 @@ Use `runTo` if you want to avoid long waiting times.
 
 -}
 run : Grammar -> Generator String
-run =
-    Tracery.Grammar.generateWhile (\_ -> True)
+run grammar =
+    grammar
+        |> Tracery.Grammar.generateWhile (\_ -> True)
+        |> Random.map (Tracery.Grammar.toString (\_ -> ""))
+
+
+{-| Will just write the current output.
+
+use run or runTo, to actually compute something.
+
+-}
+toString : ({ variable : String } -> String) -> Grammar -> String
+toString fun =
+    Tracery.Grammar.toString fun
 
 
 {-| Runs a grammar until it reaches a key in the list.
+
+    import Json.Decode
+    import Random
+    import Result.Extra
+
+    generateTo : List String -> ({variable:String} -> String)-> Int -> String -> String
+    generateTo list fun seed json =
+        json
+            |> Tracery.fromJson
+            |> Result.Extra.unpack
+                Json.Decode.errorToString
+                (\grammar ->
+                    Random.step (Tracery.runTo list grammar) (Random.initialSeed seed)
+                        |> Tuple.first
+                        |> Debug.log "debug"
+                        |> toString fun
+                )
+
+    """
+    { "origin": ["A #color# #animal#"]
+    , "color": ["black","white","gray"]
+    , "animal":
+      [ "cat, looking at a #color# #animal#"
+      , "bird."
+      ]
+    }
+    """
+    |> generateTo ["animal"] (\{variable} -> "dog.") 42
+    --> "A black dog."
+
 -}
-runTo : List String -> Grammar -> Generator String
+runTo : List String -> Grammar -> Generator Grammar
 runTo list =
     let
         set =
@@ -145,6 +188,58 @@ runTo list =
 
 
 {-| compute a single step.
+
+    import Json.Decode
+    import Random exposing (Generator)
+    import Result.Extra
+    import Tracery.Grammar exposing (Grammar)
+
+    andThenToString : ({ variable : String } -> String) -> Int -> (Grammar -> Generator Grammar) -> Result Json.Decode.Error Grammar -> String
+    andThenToString fun seed gen =
+        Result.Extra.unpack
+            Json.Decode.errorToString
+            (\grammar ->
+                Random.step (gen grammar) (Random.initialSeed seed)
+                    |> Tuple.first
+                    |> toString fun
+            )
+
+    input : Result Json.Decode.Error Grammar
+    input =
+        """
+        { "origin": ["A #animal#"]
+        , "animal":
+        [ "cat, looking at a #animal#"
+        , "bird."
+        ]
+        }
+        """
+            |> Tracery.fromJson
+
+using this function, you can step through the computation
+
+    input
+    |> andThenToString (\{variable} -> "dog.") 42 Tracery.step
+    --> "A dog."
+
+The second step does nothing (some steps only perform internal rearrangements)
+
+    input
+    |> andThenToString (\{variable} -> "dog.") 42
+        (\g -> g |> Tracery.step |> Random.andThen Tracery.step )
+    --> "A dog."
+
+Doing a second step results in
+
+    input
+    |> andThenToString (\{variable} -> "dog.") 42
+        (\g -> g
+            |> Tracery.step
+            |> Random.andThen Tracery.step
+            |> Random.andThen Tracery.step
+        )
+    --> "A cat, looking at a dog."
+
 -}
 step : Grammar -> Generator Grammar
 step =

@@ -1,4 +1,17 @@
-module Tracery.Trace exposing (Command(..), fillAll, fromExpressions, holes, simplify, toString)
+module Tracery.Command exposing
+    ( Command(..), simplify, toString
+    , fillAll, fromExpressions, holes
+    )
+
+{-| Commands are used to be able to pause the execution of a Grammar.
+
+By modifying the commands in a grammar you can directly change how the program should run.
+
+@docs Command, simplify, toString
+
+@docs fillAll, fromExpressions, holes
+
+-}
 
 import Dict exposing (Dict)
 import Random exposing (Generator)
@@ -73,18 +86,24 @@ simplify list =
 toString : (String -> String) -> List Command -> String
 toString fun list =
     list
-        |> List.map
-            (\cmd ->
+        |> List.foldl
+            (\cmd out ->
                 case cmd of
                     Print exp ->
                         case exp of
                             Variable string ->
-                                fun string
+                                out ++ fun string
 
                             Value string ->
-                                string
+                                out ++ string
 
-                    _ ->
-                        ""
+                    Save { replaceWith } ->
+                        "[Save]" ++ toString fun replaceWith
+
+                    Define _ ->
+                        "[Define]"
+
+                    Delete _ ->
+                        "[Delete]"
             )
-        |> String.concat
+            ""

@@ -7,7 +7,7 @@ import Test
 import Expect
 
 import Tracery.Syntax exposing (..)
-import Tracery.Trace exposing (Command(..))
+import Tracery.Command exposing (Command(..))
 import Dict exposing (Dict)
 
 

@@ -161,7 +161,7 @@ isValid oldKeys dict =
 {-|
 
     import Dict exposing (Dict)
-    import Tracery.Trace exposing (Command(..))
+    import Tracery.Command exposing (Command(..))
 
     input : String
     input =
