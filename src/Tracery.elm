@@ -1,16 +1,10 @@
-module Tracery exposing
-    ( fromJson, run, runTo
-    , step, stepNonRecursive, stepOnlyRecursive
-    , toString
-    )
+module Tracery exposing (fromJson, run, runTo, toString)
 
 {-| Tracery is a text-generation language mostly used for twitter bots.
 
 See [Tracery.io](www.tracery.io) for more information.
 
-@docs fromJson, run, runTo
-
-@docs step, stepNonRecursive, stepOnlyRecursive
+@docs fromJson, run, runTo, toString
 
 -}
 
@@ -153,7 +147,6 @@ toString fun =
                 (\grammar ->
                     Random.step (Tracery.runTo list grammar) (Random.initialSeed seed)
                         |> Tuple.first
-                        |> Debug.log "debug"
                         |> toString fun
                 )
 
@@ -185,90 +178,3 @@ runTo list =
                 _ ->
                     True
         )
-
-
-{-| compute a single step.
-
-    import Json.Decode
-    import Random exposing (Generator)
-    import Result.Extra
-    import Tracery.Grammar exposing (Grammar)
-
-    andThenToString : ({ variable : String } -> String) -> Int -> (Grammar -> Generator Grammar) -> Result Json.Decode.Error Grammar -> String
-    andThenToString fun seed gen =
-        Result.Extra.unpack
-            Json.Decode.errorToString
-            (\grammar ->
-                Random.step (gen grammar) (Random.initialSeed seed)
-                    |> Tuple.first
-                    |> toString fun
-            )
-
-    input : Result Json.Decode.Error Grammar
-    input =
-        """
-        { "origin": ["A #animal#"]
-        , "animal":
-        [ "cat, looking at a #animal#"
-        , "bird."
-        ]
-        }
-        """
-            |> Tracery.fromJson
-
-using this function, you can step through the computation
-
-    input
-    |> andThenToString (\{variable} -> "dog.") 42 Tracery.step
-    --> "A dog."
-
-The second step does nothing (some steps only perform internal rearrangements)
-
-    input
-    |> andThenToString (\{variable} -> "dog.") 42
-        (\g -> g |> Tracery.step |> Random.andThen Tracery.step )
-    --> "A dog."
-
-Doing a second step results in
-
-    input
-    |> andThenToString (\{variable} -> "dog.") 42
-        (\g -> g
-            |> Tracery.step
-            |> Random.andThen Tracery.step
-            |> Random.andThen Tracery.step
-        )
-    --> "A cat, looking at a dog."
-
--}
-step : Grammar -> Generator Grammar
-step =
-    Tracery.Grammar.generateNext Tracery.Grammar.defaultStrategy
-
-
-{-| compute a single step.
-
-The algorithm will never choose a recursive option for any key in the given list.
-
--}
-stepNonRecursive : List String -> Grammar -> Generator Grammar
-stepNonRecursive list =
-    list
-        |> Set.fromList
-        |> Tracery.Grammar.noRecursionStrategy
-        |> Tracery.Grammar.generateNext
-
-
-{-| compute a single step.
-
-The algorithm will always choose a recursive option for any key in the given list.
-
-If no such option exists, then the empty list will be used instead.
-
--}
-stepOnlyRecursive : List String -> Grammar -> Generator Grammar
-stepOnlyRecursive list =
-    list
-        |> Set.fromList
-        |> Tracery.Grammar.onlyRecursionStrategy
-        |> Tracery.Grammar.generateNext

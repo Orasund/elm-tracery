@@ -1,4 +1,16 @@
-module Syntax exposing (Definition(..), Expression(..), Syntax, decoder, fromString, originString)
+module Tracery.Syntax exposing
+    ( Expression(..), Definition(..)
+    , decoder, fromString, originString
+    )
+
+{-| This modules exposes the internal structures of the package.
+
+Its intended to be used in combination with some preprocessing.
+
+@docs Expression, Definition
+@docs decoder, fromString, originString
+
+-}
 
 import Coverage
 import Dict exposing (Dict)
@@ -9,54 +21,70 @@ import Result.Extra
 import Set
 
 
+{-| The expressions always return a string
+
+  - `Value` - just return the given string
+  - `Variable` - look up the key and insert a generated string according to the definition of the key.
+
+-}
 type Expression
-    = Print String
-    | Insert String
+    = Value String
+    | Variable String
 
 
+{-| The definition specifies how the strings gets generated
+
+  - `Choose` - Choose a random sentence out of a list.
+  - `Let` - Generate the sentence one. Then use the sentence over and over again.
+  - `With` - Generate the sentence according to the sub-grammar.
+
+-}
 type Definition
     = Choose (List (List Expression))
     | Let (List Expression)
-    | With Syntax
+    | With (Dict String Definition)
 
 
-type alias Syntax =
-    Dict String Definition
+{-| The origin is the starting point for the generated story.
 
+    originString : String
+    originString =
+        "origin"
 
+-}
 originString : String
 originString =
     let
         _ =
-            Coverage.track "Syntax" 0
+            Coverage.track "Tracery.Syntax" 0
     in
     "origin"
 
 
-isValid : List String -> Syntax -> Result String ()
+isValid : List String -> Dict String Definition -> Result String ()
 isValid oldKeys dict =
     let
         _ =
-            Coverage.track "Syntax" 27
+            Coverage.track "Tracery.Syntax" 27
 
         keys =
             let
                 _ =
-                    Coverage.track "Syntax" 1
+                    Coverage.track "Tracery.Syntax" 1
             in
-            dict |> Debug.log "dict" |> Dict.keys |> (++) oldKeys |> Debug.log "keys"
+            dict |> Dict.keys |> (++) oldKeys
 
         verify k sentences =
             let
                 _ =
-                    Coverage.track "Syntax" 12
+                    Coverage.track "Tracery.Syntax" 12
             in
             if
                 List.any
                     (\sentenceKeys ->
                         let
                             _ =
-                                Coverage.track "Syntax" 2
+                                Coverage.track "Tracery.Syntax" 2
                         in
                         not (List.member k sentenceKeys)
                     )
@@ -64,7 +92,7 @@ isValid oldKeys dict =
             then
                 let
                     _ =
-                        Coverage.track "Syntax" 10
+                        Coverage.track "Tracery.Syntax" 10
                 in
                 sentences
                     |> List.concat
@@ -72,39 +100,39 @@ isValid oldKeys dict =
                         (\sentenceKey ->
                             let
                                 _ =
-                                    Coverage.track "Syntax" 5
+                                    Coverage.track "Tracery.Syntax" 5
                             in
                             if List.member sentenceKey keys then
                                 let
                                     _ =
-                                        Coverage.track "Syntax" 3
+                                        Coverage.track "Tracery.Syntax" 3
                                 in
                                 Nothing
 
                             else
                                 let
                                     _ =
-                                        Coverage.track "Syntax" 4
+                                        Coverage.track "Tracery.Syntax" 4
                                 in
                                 Just sentenceKey
                         )
                     |> (\l ->
                             let
                                 _ =
-                                    Coverage.track "Syntax" 9
+                                    Coverage.track "Tracery.Syntax" 9
                             in
                             case l of
                                 [] ->
                                     let
                                         _ =
-                                            Coverage.track "Syntax" 6
+                                            Coverage.track "Tracery.Syntax" 6
                                     in
                                     Ok ()
 
                                 [ a ] ->
                                     let
                                         _ =
-                                            Coverage.track "Syntax" 7
+                                            Coverage.track "Tracery.Syntax" 7
                                     in
                                     "In the definition of "
                                         ++ k
@@ -117,7 +145,7 @@ isValid oldKeys dict =
                                 head :: tail ->
                                     let
                                         _ =
-                                            Coverage.track "Syntax" 8
+                                            Coverage.track "Tracery.Syntax" 8
                                     in
                                     "In the definition of "
                                         ++ k
@@ -132,7 +160,7 @@ isValid oldKeys dict =
             else
                 let
                     _ =
-                        Coverage.track "Syntax" 11
+                        Coverage.track "Tracery.Syntax" 11
                 in
                 "The definition of "
                     ++ k
@@ -145,52 +173,52 @@ isValid oldKeys dict =
             (\( k, v ) ->
                 let
                     _ =
-                        Coverage.track "Syntax" 25
+                        Coverage.track "Tracery.Syntax" 25
                 in
                 if k /= originString && List.member k oldKeys then
                     let
                         _ =
-                            Coverage.track "Syntax" 13
+                            Coverage.track "Tracery.Syntax" 13
                     in
                     Err (k ++ " has already been defined.")
 
                 else
                     let
                         _ =
-                            Coverage.track "Syntax" 24
+                            Coverage.track "Tracery.Syntax" 24
                     in
                     case v of
                         Choose l ->
                             let
                                 _ =
-                                    Coverage.track "Syntax" 18
+                                    Coverage.track "Tracery.Syntax" 18
                             in
                             l
                                 |> List.map
                                     (\sentence ->
                                         let
                                             _ =
-                                                Coverage.track "Syntax" 17
+                                                Coverage.track "Tracery.Syntax" 17
                                         in
                                         sentence
                                             |> List.filterMap
                                                 (\exp ->
                                                     let
                                                         _ =
-                                                            Coverage.track "Syntax" 16
+                                                            Coverage.track "Tracery.Syntax" 16
                                                     in
                                                     case exp of
-                                                        Print _ ->
+                                                        Value _ ->
                                                             let
                                                                 _ =
-                                                                    Coverage.track "Syntax" 14
+                                                                    Coverage.track "Tracery.Syntax" 14
                                                             in
                                                             Nothing
 
-                                                        Insert key ->
+                                                        Variable key ->
                                                             let
                                                                 _ =
-                                                                    Coverage.track "Syntax" 15
+                                                                    Coverage.track "Tracery.Syntax" 15
                                                             in
                                                             Just key
                                                 )
@@ -200,27 +228,27 @@ isValid oldKeys dict =
                         Let l ->
                             let
                                 _ =
-                                    Coverage.track "Syntax" 22
+                                    Coverage.track "Tracery.Syntax" 22
                             in
                             l
                                 |> List.filterMap
                                     (\exp ->
                                         let
                                             _ =
-                                                Coverage.track "Syntax" 21
+                                                Coverage.track "Tracery.Syntax" 21
                                         in
                                         case exp of
-                                            Print _ ->
+                                            Value _ ->
                                                 let
                                                     _ =
-                                                        Coverage.track "Syntax" 19
+                                                        Coverage.track "Tracery.Syntax" 19
                                                 in
                                                 Nothing
 
-                                            Insert key ->
+                                            Variable key ->
                                                 let
                                                     _ =
-                                                        Coverage.track "Syntax" 20
+                                                        Coverage.track "Tracery.Syntax" 20
                                                 in
                                                 Just key
                                     )
@@ -230,7 +258,7 @@ isValid oldKeys dict =
                         With subSyntax ->
                             let
                                 _ =
-                                    Coverage.track "Syntax" 23
+                                    Coverage.track "Tracery.Syntax" 23
                             in
                             isValid keys subSyntax
             )
@@ -239,7 +267,7 @@ isValid oldKeys dict =
             (\_ ->
                 let
                     _ =
-                        Coverage.track "Syntax" 26
+                        Coverage.track "Tracery.Syntax" 26
                 in
                 ()
             )
@@ -247,7 +275,8 @@ isValid oldKeys dict =
 
 {-|
 
-    import Dict
+    import Dict exposing (Dict)
+    import Tracery.Command exposing (Command(..))
 
     input : String
     input =
@@ -260,26 +289,31 @@ isValid oldKeys dict =
          }
        }"""
 
-    output : Syntax
+    output : Dict String Definition
     output =
         Dict.fromList
             [ ( "origin"
               , Choose
-                  [ [Print "Hello ", Print "\\", Print " World ",Print "#"]
-                  , [Insert "statement", Print " and ", Insert "statement"]
+                  [ [ (Value "Hello "),  (Value "\\"),  (Value " World "), (Value "#")]
+                  , [ (Variable "statement"),  (Value " and "),  (Variable "statement")]
                   ]
               )
             , ( "statement"
               , Dict.fromList
                   [ ( "origin"
-                    , Let [ Print "my ", Insert "myPet", Print " is the ", Insert "complement"]
+                    , [  (Value "my ")
+                      ,  (Variable "myPet")
+                      ,  (Value " is the ")
+                      ,  (Variable "complement")
+                      ]
+                        |> Let
                     )
-                  , ( "myPet",Let [Insert "pet"])
-                  , ( "pet", Choose [[Print "cat"],[Print "dog"]])
+                  , ( "myPet",Let [ (Variable "pet")])
+                  , ( "pet", Choose [[ (Value "cat")],[ (Value "dog")]])
                   , ( "complement"
                     , Choose
-                        [ [ Print "smartest ", Insert "myPet", Print " in the world"]
-                        , [ Print "fastest ", Insert "myPet", Print " that i know of"]
+                        [ [  (Value "smartest "),  (Variable "myPet"),  (Value " in the world")]
+                        , [  (Value "fastest "),  (Variable "myPet"),  (Value " that i know of")]
                         ]
                     )
                   ]
@@ -291,27 +325,29 @@ isValid oldKeys dict =
     --> Ok output
 
 -}
-fromString : String -> Result Json.Decode.Error Syntax
+fromString : String -> Result Json.Decode.Error (Dict String Definition)
 fromString =
     let
         _ =
-            Coverage.track "Syntax" 28
+            Coverage.track "Tracery.Syntax" 28
     in
     Json.Decode.decodeString decoder
 
 
-decoder : Json.Decode.Decoder Syntax
+{-| Decoder for the Syntax.
+-}
+decoder : Json.Decode.Decoder (Dict String Definition)
 decoder =
     let
         _ =
-            Coverage.track "Syntax" 32
+            Coverage.track "Tracery.Syntax" 32
     in
     Json.Value.decoder
         |> Json.Decode.andThen
             (\jsonValue ->
                 let
                     _ =
-                        Coverage.track "Syntax" 31
+                        Coverage.track "Tracery.Syntax" 31
                 in
                 jsonValue
                     |> decodeSyntax
@@ -319,7 +355,7 @@ decoder =
                         (\syntax ->
                             let
                                 _ =
-                                    Coverage.track "Syntax" 30
+                                    Coverage.track "Tracery.Syntax" 30
                             in
                             syntax
                                 |> isValid []
@@ -327,7 +363,7 @@ decoder =
                                     (\() ->
                                         let
                                             _ =
-                                                Coverage.track "Syntax" 29
+                                                Coverage.track "Tracery.Syntax" 29
                                         in
                                         syntax
                                     )
@@ -337,31 +373,31 @@ decoder =
             )
 
 
-decodeSyntax : JsonValue -> Result String Syntax
+decodeSyntax : JsonValue -> Result String (Dict String Definition)
 decodeSyntax jsonValue =
     let
         _ =
-            Coverage.track "Syntax" 37
+            Coverage.track "Tracery.Syntax" 37
     in
     case jsonValue of
         ObjectValue list ->
             let
                 _ =
-                    Coverage.track "Syntax" 35
+                    Coverage.track "Tracery.Syntax" 35
             in
             list
                 |> List.map
                     (\( k, v ) ->
                         let
                             _ =
-                                Coverage.track "Syntax" 34
+                                Coverage.track "Tracery.Syntax" 34
                         in
                         decodeDefinition v
                             |> Result.map
                                 (\ok ->
                                     let
                                         _ =
-                                            Coverage.track "Syntax" 33
+                                            Coverage.track "Tracery.Syntax" 33
                                     in
                                     ( k, ok )
                                 )
@@ -372,7 +408,7 @@ decodeSyntax jsonValue =
         _ ->
             let
                 _ =
-                    Coverage.track "Syntax" 36
+                    Coverage.track "Tracery.Syntax" 36
             in
             errorString
                 { expected = "an object"
@@ -385,13 +421,13 @@ decodeDefinition : JsonValue -> Result String Definition
 decodeDefinition jsonValue =
     let
         _ =
-            Coverage.track "Syntax" 47
+            Coverage.track "Tracery.Syntax" 47
     in
     case jsonValue of
         StringValue string ->
             let
                 _ =
-                    Coverage.track "Syntax" 39
+                    Coverage.track "Tracery.Syntax" 39
             in
             string
                 |> Parser.run sentenceParser
@@ -399,7 +435,7 @@ decodeDefinition jsonValue =
                     (\_ ->
                         let
                             _ =
-                                Coverage.track "Syntax" 38
+                                Coverage.track "Tracery.Syntax" 38
                         in
                         ""
                     )
@@ -408,20 +444,20 @@ decodeDefinition jsonValue =
         ArrayValue l ->
             let
                 _ =
-                    Coverage.track "Syntax" 44
+                    Coverage.track "Tracery.Syntax" 44
             in
             l
                 |> List.map
                     (\sentence ->
                         let
                             _ =
-                                Coverage.track "Syntax" 43
+                                Coverage.track "Tracery.Syntax" 43
                         in
                         case sentence of
                             StringValue string ->
                                 let
                                     _ =
-                                        Coverage.track "Syntax" 41
+                                        Coverage.track "Tracery.Syntax" 41
                                 in
                                 string
                                     |> Parser.run sentenceParser
@@ -429,7 +465,7 @@ decodeDefinition jsonValue =
                                         (\_ ->
                                             let
                                                 _ =
-                                                    Coverage.track "Syntax" 40
+                                                    Coverage.track "Tracery.Syntax" 40
                                             in
                                             ""
                                         )
@@ -437,7 +473,7 @@ decodeDefinition jsonValue =
                             _ ->
                                 let
                                     _ =
-                                        Coverage.track "Syntax" 42
+                                        Coverage.track "Tracery.Syntax" 42
                                 in
                                 errorString
                                     { expected = "a string"
@@ -451,7 +487,7 @@ decodeDefinition jsonValue =
         ObjectValue _ ->
             let
                 _ =
-                    Coverage.track "Syntax" 45
+                    Coverage.track "Tracery.Syntax" 45
             in
             decodeSyntax jsonValue
                 |> Result.map With
@@ -459,7 +495,7 @@ decodeDefinition jsonValue =
         _ ->
             let
                 _ =
-                    Coverage.track "Syntax" 46
+                    Coverage.track "Tracery.Syntax" 46
             in
             errorString
                 { expected = "a string, list or object"
@@ -472,20 +508,20 @@ sentenceParser : Parser (List Expression)
 sentenceParser =
     let
         _ =
-            Coverage.track "Syntax" 51
+            Coverage.track "Tracery.Syntax" 51
     in
     Parser.loop []
         (\list ->
             let
                 _ =
-                    Coverage.track "Syntax" 50
+                    Coverage.track "Tracery.Syntax" 50
             in
             Parser.oneOf
                 [ Parser.succeed
                     (\stmt ->
                         let
                             _ =
-                                Coverage.track "Syntax" 48
+                                Coverage.track "Tracery.Syntax" 48
                         in
                         Parser.Loop (stmt :: list)
                     )
@@ -495,7 +531,7 @@ sentenceParser =
                         (\_ ->
                             let
                                 _ =
-                                    Coverage.track "Syntax" 49
+                                    Coverage.track "Tracery.Syntax" 49
                             in
                             Parser.Done (List.reverse list)
                         )
@@ -507,19 +543,19 @@ expressionParser : Parser Expression
 expressionParser =
     let
         _ =
-            Coverage.track "Syntax" 54
+            Coverage.track "Tracery.Syntax" 54
 
         validChar char =
             let
                 _ =
-                    Coverage.track "Syntax" 52
+                    Coverage.track "Tracery.Syntax" 52
             in
             char /= '#' && char /= '\\'
 
         variable =
             let
                 _ =
-                    Coverage.track "Syntax" 53
+                    Coverage.track "Tracery.Syntax" 53
             in
             Parser.variable
                 { start = validChar
@@ -529,12 +565,12 @@ expressionParser =
     in
     Parser.oneOf
         [ variable
-            |> Parser.map Print
-        , Parser.succeed (Print "\\")
+            |> Parser.map Value
+        , Parser.succeed (Value "\\")
             |. Parser.token "\\\\"
-        , Parser.succeed (Print "#")
+        , Parser.succeed (Value "#")
             |. Parser.token "\\#"
-        , Parser.succeed Insert
+        , Parser.succeed Variable
             |. Parser.token "#"
             |= variable
             |. Parser.token "#"
@@ -545,7 +581,7 @@ errorString : { expected : String, got : JsonValue } -> String
 errorString args =
     let
         _ =
-            Coverage.track "Syntax" 55
+            Coverage.track "Tracery.Syntax" 55
     in
     "expected " ++ args.expected ++ " but got " ++ toString args.got ++ "."
 
@@ -554,13 +590,13 @@ toString : JsonValue -> String
 toString jsonValue =
     let
         _ =
-            Coverage.track "Syntax" 65
+            Coverage.track "Tracery.Syntax" 65
     in
     case jsonValue of
         ObjectValue list ->
             let
                 _ =
-                    Coverage.track "Syntax" 57
+                    Coverage.track "Tracery.Syntax" 57
             in
             "{ "
                 ++ (list
@@ -568,7 +604,7 @@ toString jsonValue =
                             (\( k, v ) ->
                                 let
                                     _ =
-                                        Coverage.track "Syntax" 56
+                                        Coverage.track "Tracery.Syntax" 56
                                 in
                                 k ++ " : " ++ toString v
                             )
@@ -579,46 +615,46 @@ toString jsonValue =
         ArrayValue list ->
             let
                 _ =
-                    Coverage.track "Syntax" 58
+                    Coverage.track "Tracery.Syntax" 58
             in
             "[ " ++ (list |> List.map toString |> String.join ", ") ++ " ]"
 
         BoolValue bool ->
             let
                 _ =
-                    Coverage.track "Syntax" 61
+                    Coverage.track "Tracery.Syntax" 61
             in
             if bool then
                 let
                     _ =
-                        Coverage.track "Syntax" 59
+                        Coverage.track "Tracery.Syntax" 59
                 in
                 "True"
 
             else
                 let
                     _ =
-                        Coverage.track "Syntax" 60
+                        Coverage.track "Tracery.Syntax" 60
                 in
                 "False"
 
         NullValue ->
             let
                 _ =
-                    Coverage.track "Syntax" 62
+                    Coverage.track "Tracery.Syntax" 62
             in
             "Null"
 
         NumericValue float ->
             let
                 _ =
-                    Coverage.track "Syntax" 63
+                    Coverage.track "Tracery.Syntax" 63
             in
             float |> String.fromFloat
 
         StringValue string ->
             let
                 _ =
-                    Coverage.track "Syntax" 64
+                    Coverage.track "Tracery.Syntax" 64
             in
             "\"" ++ string ++ "\""

@@ -30,6 +30,7 @@ module Tracery.Grammar exposing
 
 -}
 
+import Coverage
 import Dict exposing (Dict)
 import Json.Value exposing (JsonValue(..))
 import Random exposing (Generator)
@@ -58,6 +59,10 @@ type alias Grammar =
 -}
 fromDefinitions : Dict String Definition -> Grammar
 fromDefinitions syntax =
+    let
+        _ =
+            Coverage.track "Tracery.Grammar" 0
+    in
     { output = []
     , stack = []
     , next = Just (Print (Variable Tracery.Syntax.originString))
@@ -70,15 +75,29 @@ fromDefinitions syntax =
 -}
 rewind : Grammar -> Grammar
 rewind grammar =
+    let
+        _ =
+            Coverage.track "Tracery.Grammar" 2
+    in
     grammar
         |> end
-        |> (\g -> { g | output = [] } |> withCommands g.output)
+        |> (\g ->
+                let
+                    _ =
+                        Coverage.track "Tracery.Grammar" 1
+                in
+                { g | output = [] } |> withCommands g.output
+           )
 
 
 {-| set the remaining commands as output
 -}
 end : Grammar -> Grammar
 end grammar =
+    let
+        _ =
+            Coverage.track "Tracery.Grammar" 3
+    in
     { grammar
         | output =
             grammar.output
@@ -96,21 +115,44 @@ end grammar =
 -}
 toString : ({ variable : String } -> String) -> Grammar -> String
 toString fun grammar =
+    let
+        _ =
+            Coverage.track "Tracery.Grammar" 5
+    in
     grammar
         |> end
         |> .output
-        |> Tracery.Command.toString (\variable -> fun { variable = variable })
+        |> Tracery.Command.toString
+            (\variable ->
+                let
+                    _ =
+                        Coverage.track "Tracery.Grammar" 4
+                in
+                fun { variable = variable }
+            )
 
 
 {-| Sets Commands of a Grammar.
 -}
 withCommands : List Command -> Grammar -> Grammar
 withCommands trace grammar =
+    let
+        _ =
+            Coverage.track "Tracery.Grammar" 8
+    in
     case trace of
         [] ->
+            let
+                _ =
+                    Coverage.track "Tracery.Grammar" 6
+            in
             { grammar | next = Nothing }
 
         head :: tail ->
+            let
+                _ =
+                    Coverage.track "Tracery.Grammar" 7
+            in
             { grammar
                 | next = Just head
                 , stack = tail
@@ -126,6 +168,10 @@ withCommands trace grammar =
 -}
 toNext : Grammar -> Grammar
 toNext grammar =
+    let
+        _ =
+            Coverage.track "Tracery.Grammar" 9
+    in
     grammar |> withCommands grammar.stack
 
 
@@ -133,11 +179,26 @@ toNext grammar =
 -}
 generateWhile : (Grammar -> Bool) -> Grammar -> Generator Grammar
 generateWhile fun grammar =
+    let
+        _ =
+            Coverage.track "Tracery.Grammar" 12
+    in
     grammar
         |> generateOutput fun defaultStrategy
         |> Random.andThen
-            (while (\g -> fun g && Tracery.Command.holes g.output /= [])
+            (while
                 (\g ->
+                    let
+                        _ =
+                            Coverage.track "Tracery.Grammar" 10
+                    in
+                    fun g && Tracery.Command.holes g.output /= []
+                )
+                (\g ->
+                    let
+                        _ =
+                            Coverage.track "Tracery.Grammar" 11
+                    in
                     g
                         |> rewind
                         |> generateOutput fun defaultStrategy
@@ -186,19 +247,46 @@ You can use `generateCommands` instead, If you intend to get the output right aw
 -}
 generateOutput : (Grammar -> Bool) -> Strategy -> Grammar -> Generator Grammar
 generateOutput fun strategy =
-    while (\g -> fun g && g.next /= Nothing)
+    let
+        _ =
+            Coverage.track "Tracery.Grammar" 14
+    in
+    while
+        (\g ->
+            let
+                _ =
+                    Coverage.track "Tracery.Grammar" 13
+            in
+            fun g && g.next /= Nothing
+        )
         (generateNext strategy)
 
 
 while : (Grammar -> Bool) -> (Grammar -> Generator Grammar) -> Grammar -> Generator Grammar
 while fun do init =
+    let
+        _ =
+            Coverage.track "Tracery.Grammar" 18
+    in
     do init
         |> Random.andThen
             (\g ->
+                let
+                    _ =
+                        Coverage.track "Tracery.Grammar" 17
+                in
                 if fun g then
+                    let
+                        _ =
+                            Coverage.track "Tracery.Grammar" 15
+                    in
                     while fun do g
 
                 else
+                    let
+                        _ =
+                            Coverage.track "Tracery.Grammar" 16
+                    in
                     Random.constant g
             )
 
@@ -262,10 +350,22 @@ Doing a second step results in
 -}
 generateNext : Strategy -> Grammar -> Generator Grammar
 generateNext strategy grammar =
+    let
+        _ =
+            Coverage.track "Tracery.Grammar" 27
+    in
     (case grammar.next of
         Just next ->
+            let
+                _ =
+                    Coverage.track "Tracery.Grammar" 24
+            in
             case next of
                 Print (Variable k0) ->
+                    let
+                        _ =
+                            Coverage.track "Tracery.Grammar" 19
+                    in
                     Dict.get k0 grammar.definitions
                         |> Maybe.map
                             (generateFromDefinition k0
@@ -278,17 +378,33 @@ generateNext strategy grammar =
                             )
 
                 Print (Value string) ->
+                    let
+                        _ =
+                            Coverage.track "Tracery.Grammar" 20
+                    in
                     Random.constant { grammar | output = grammar.output ++ [ string |> Value |> Print ] }
 
                 Define dict ->
+                    let
+                        _ =
+                            Coverage.track "Tracery.Grammar" 21
+                    in
                     { grammar | definitions = grammar.definitions |> Dict.union dict }
                         |> Random.constant
 
                 Delete list ->
+                    let
+                        _ =
+                            Coverage.track "Tracery.Grammar" 22
+                    in
                     { grammar | definitions = list |> List.foldl Dict.remove grammar.definitions }
                         |> Random.constant
 
                 Save { asConstant, replaceWith } ->
+                    let
+                        _ =
+                            Coverage.track "Tracery.Grammar" 23
+                    in
                     { grammar
                         | constants = grammar.constants |> Dict.insert asConstant grammar.output
                         , output = replaceWith
@@ -296,9 +412,20 @@ generateNext strategy grammar =
                         |> Random.constant
 
         Nothing ->
+            let
+                _ =
+                    Coverage.track "Tracery.Grammar" 25
+            in
             Random.constant grammar
     )
-        |> Random.map (\g -> { g | output = Tracery.Command.simplify g.output } |> toNext)
+        |> Random.map
+            (\g ->
+                let
+                    _ =
+                        Coverage.track "Tracery.Grammar" 26
+                in
+                { g | output = Tracery.Command.simplify g.output } |> toNext
+            )
 
 
 generateFromDefinition :
@@ -308,27 +435,59 @@ generateFromDefinition :
     -> Definition
     -> Generator Grammar
 generateFromDefinition k0 grammar strategy definition =
+    let
+        _ =
+            Coverage.track "Tracery.Grammar" 36
+    in
     case definition of
         Choose statements ->
+            let
+                _ =
+                    Coverage.track "Tracery.Grammar" 31
+            in
             (case List.filter (strategy k0) statements of
                 [] ->
+                    let
+                        _ =
+                            Coverage.track "Tracery.Grammar" 28
+                    in
                     Random.constant []
 
                 head :: tail ->
+                    let
+                        _ =
+                            Coverage.track "Tracery.Grammar" 29
+                    in
                     Random.uniform head tail
             )
                 |> Random.map
                     (\stack ->
+                        let
+                            _ =
+                                Coverage.track "Tracery.Grammar" 30
+                        in
                         { grammar | stack = Tracery.Command.fromExpressions stack ++ grammar.stack }
                     )
 
         Let statement ->
+            let
+                _ =
+                    Coverage.track "Tracery.Grammar" 34
+            in
             case grammar.constants |> Dict.get k0 of
                 Just stack ->
+                    let
+                        _ =
+                            Coverage.track "Tracery.Grammar" 32
+                    in
                     { grammar | output = grammar.output ++ stack }
                         |> Random.constant
 
                 Nothing ->
+                    let
+                        _ =
+                            Coverage.track "Tracery.Grammar" 33
+                    in
                     Random.constant
                         { grammar
                             | output = []
@@ -341,6 +500,10 @@ generateFromDefinition k0 grammar strategy definition =
                         }
 
         With subDefinitions ->
+            let
+                _ =
+                    Coverage.track "Tracery.Grammar" 35
+            in
             Random.constant
                 { grammar
                     | stack =
@@ -373,14 +536,30 @@ type alias Strategy =
 -}
 noRecursionStrategy : Set String -> Strategy
 noRecursionStrategy set key list =
+    let
+        _ =
+            Coverage.track "Tracery.Grammar" 40
+    in
     (Set.member key set |> not)
         || List.all
             (\exp ->
+                let
+                    _ =
+                        Coverage.track "Tracery.Grammar" 39
+                in
                 case exp of
                     Value _ ->
+                        let
+                            _ =
+                                Coverage.track "Tracery.Grammar" 37
+                        in
                         True
 
                     Variable string ->
+                        let
+                            _ =
+                                Coverage.track "Tracery.Grammar" 38
+                        in
                         key /= string
             )
             list
@@ -390,14 +569,30 @@ noRecursionStrategy set key list =
 -}
 onlyRecursionStrategy : Set String -> Strategy
 onlyRecursionStrategy set key list =
+    let
+        _ =
+            Coverage.track "Tracery.Grammar" 44
+    in
     (Set.member key set |> not)
         || List.any
             (\exp ->
+                let
+                    _ =
+                        Coverage.track "Tracery.Grammar" 43
+                in
                 case exp of
                     Value _ ->
+                        let
+                            _ =
+                                Coverage.track "Tracery.Grammar" 41
+                        in
                         True
 
                     Variable string ->
+                        let
+                            _ =
+                                Coverage.track "Tracery.Grammar" 42
+                        in
                         key == string
             )
             list
@@ -407,4 +602,8 @@ onlyRecursionStrategy set key list =
 -}
 defaultStrategy : Strategy
 defaultStrategy _ _ =
+    let
+        _ =
+            Coverage.track "Tracery.Grammar" 45
+    in
     True

@@ -2,6 +2,7 @@
   "root": "../src",
   "tests": [
     "Tracery.Syntax",
+    "Tracery.Grammar",
     "Tracery",
     "./README.md"
   ]

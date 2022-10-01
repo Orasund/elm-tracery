@@ -1,169 +1,228 @@
-module Tracery exposing (fromJson, fromSyntax)
+module Tracery exposing (fromJson, run, runTo, toString)
+
+{-| Tracery is a text-generation language mostly used for twitter bots.
+
+See [Tracery.io](www.tracery.io) for more information.
+
+@docs fromJson, run, runTo, toString
+
+-}
 
 import Coverage
-import Dict exposing (Dict)
 import Json.Decode
 import Json.Value exposing (JsonValue(..))
 import Parser exposing ((|.), (|=))
 import Random exposing (Generator)
-import Syntax exposing (Definition(..), Expression(..), Syntax)
+import Set
+import Tracery.Command exposing (Command(..))
+import Tracery.Grammar exposing (Grammar)
+import Tracery.Syntax exposing (Definition(..), Expression(..))
 
 
-fromJson : String -> Result Json.Decode.Error (Generator String)
+{-| Turns a tracery json-string into a generator
+
+    import Json.Decode
+    import Random
+    import Result.Extra
+
+    generate : Int -> String -> String
+    generate seed json =
+        json
+            |> Tracery.fromJson
+            |> Result.Extra.unpack
+                Json.Decode.errorToString
+                (\grammar ->
+                    Random.step (Tracery.run grammar) (Random.initialSeed seed)
+                        |> Tuple.first
+                )
+
+A tracery json is a object that has a `origin` field.
+
+The `#` and `\` characters need to be escaped.
+
+    """
+    { "origin": "The \\\\# and \\\\\\\\ characters need to be escaped."}
+    """
+    |> generate 42
+    --> "The # and \\ characters need to be escaped."
+
+If you provide a list, tracer will tick an element at random.
+
+    """
+    { "origin": ["I like cats","I like dogs"]}
+    """
+    |> generate 42
+    --> "I like cats"
+
+You can reference other fields using `#..#`
+
+    """
+    { "origin": ["I have two pets: a #pet# and a #pet#"]
+    , "pet": ["cat","dog","fish","parrot"]
+    }
+    """
+    |> generate 42
+    --> "I have two pets: a dog and a cat"
+
+Definitions may also be recursive.
+
+    """
+    { "origin": ["I have #pets#"]
+    , "pets": ["a #pet#","a #pet# and #pets#"]
+    , "pet": ["cat","dog","fish","parrot"]
+    }
+    """
+    |> generate 20
+    --> "I have a fish and a cat and a dog"
+
+You can define constants by providing a string instead of a list.
+
+    """
+    { "origin": ["My #favoritePet# is the best #favoritePet# in the world"]
+    , "favoritePet" : "#pet#"
+    , "pet": ["cat","dog","fish","parrot"]
+    }
+    """
+    |> generate 42
+    --> "My dog is the best dog in the world"
+
+You may define sub-definitions to organize your definitions.
+
+    """
+    { "origin": ["My #cat#","My #dog#"]
+    , "cat":
+      { "origin":"cat is named #name#"
+      , "name": ["Cleopatra","Cesar"]
+      }
+    , "dog":
+      { "origin":"dog is named #name#"
+      , "name": ["Athena","Zeus"]
+      }
+    }
+    """
+    |> generate 42
+    --> "My cat is named Cleopatra"
+
+-}
+fromJson : String -> Result Json.Decode.Error Grammar
 fromJson string =
     let
         _ =
             Coverage.track "Tracery" 0
     in
-    string |> Syntax.fromString |> Result.map fromSyntax
+    string |> Tracery.Syntax.fromString |> Result.map Tracery.Grammar.fromDefinitions
 
 
-fromSyntax : Syntax -> Generator String
-fromSyntax syntax =
+{-| Runs a grammar until it ends.
+
+Some recursive definitions might take a long time.
+
+Use `runTo` if you want to avoid long waiting times.
+
+-}
+run : Grammar -> Generator String
+run grammar =
     let
         _ =
-            Coverage.track "Tracery" 1
+            Coverage.track "Tracery" 3
     in
-    generateStory Syntax.originString Dict.empty syntax |> Random.map Tuple.first
-
-
-generateStory : String -> Dict String String -> Syntax -> Generator ( String, Dict String String )
-generateStory k0 constants syntax =
-    let
-        _ =
-            Coverage.track "Tracery" 12
-    in
-    Dict.get k0 syntax
-        |> Maybe.map
-            (\definition ->
+    grammar
+        |> Tracery.Grammar.generateWhile
+            (\_ ->
                 let
                     _ =
-                        Coverage.track "Tracery" 11
+                        Coverage.track "Tracery" 1
                 in
-                case definition of
-                    Choose statements ->
-                        let
-                            _ =
-                                Coverage.track "Tracery" 4
-                        in
-                        case statements of
-                            [] ->
-                                let
-                                    _ =
-                                        Coverage.track "Tracery" 2
-                                in
-                                Random.constant ( "", constants )
-
-                            head :: tail ->
-                                let
-                                    _ =
-                                        Coverage.track "Tracery" 3
-                                in
-                                Random.uniform head tail
-                                    |> Random.andThen (generateSentence constants syntax)
-
-                    Let sentence ->
-                        let
-                            _ =
-                                Coverage.track "Tracery" 8
-                        in
-                        case constants |> Dict.get k0 of
-                            Just string ->
-                                let
-                                    _ =
-                                        Coverage.track "Tracery" 5
-                                in
-                                Random.constant ( string, constants )
-
-                            Nothing ->
-                                let
-                                    _ =
-                                        Coverage.track "Tracery" 7
-                                in
-                                sentence
-                                    |> generateSentence constants syntax
-                                    |> Random.map
-                                        (\( s, c ) ->
-                                            let
-                                                _ =
-                                                    Coverage.track "Tracery" 6
-                                            in
-                                            ( s, c |> Dict.insert k0 s )
-                                        )
-
-                    With subSyntax ->
-                        let
-                            _ =
-                                Coverage.track "Tracery" 10
-                        in
-                        (subSyntax |> Dict.union (syntax |> Dict.remove Syntax.originString))
-                            |> generateStory Syntax.originString constants
-                            |> Random.map
-                                (\( s, c ) ->
-                                    let
-                                        _ =
-                                            Coverage.track "Tracery" 9
-                                    in
-                                    ( s, c |> Dict.insert k0 s )
-                                )
+                True
             )
-        |> Maybe.withDefault (Random.constant ( "", constants ))
+        |> Random.map
+            (Tracery.Grammar.toString
+                (\_ ->
+                    let
+                        _ =
+                            Coverage.track "Tracery" 2
+                    in
+                    ""
+                )
+            )
 
 
-generateSentence : Dict String String -> Syntax -> List Expression -> Generator ( String, Dict String String )
-generateSentence constants syntax sentence =
+{-| Will just write the current output.
+
+use run or runTo, to actually compute something.
+
+-}
+toString : ({ variable : String } -> String) -> Grammar -> String
+toString fun =
     let
         _ =
-            Coverage.track "Tracery" 19
+            Coverage.track "Tracery" 4
     in
-    sentence
-        |> List.foldl
-            (\exp generator ->
-                let
-                    _ =
-                        Coverage.track "Tracery" 18
-                in
-                case exp of
-                    Print string ->
-                        let
-                            _ =
-                                Coverage.track "Tracery" 14
-                        in
-                        generator
-                            |> Random.map
-                                (Tuple.mapFirst
-                                    (\it ->
-                                        let
-                                            _ =
-                                                Coverage.track "Tracery" 13
-                                        in
-                                        it ++ string
-                                    )
-                                )
+    Tracery.Grammar.toString fun
 
-                    Insert key ->
-                        let
-                            _ =
-                                Coverage.track "Tracery" 17
-                        in
-                        generator
-                            |> Random.andThen
-                                (\( s1, g1 ) ->
-                                    let
-                                        _ =
-                                            Coverage.track "Tracery" 16
-                                    in
-                                    generateStory key g1 syntax
-                                        |> Random.map
-                                            (Tuple.mapFirst
-                                                (\s2 ->
-                                                    let
-                                                        _ =
-                                                            Coverage.track "Tracery" 15
-                                                    in
-                                                    s1 ++ s2
-                                                )
-                                            )
-                                )
-            )
-            (Random.constant ( "", constants ))
+
+{-| Runs a grammar until it reaches a key in the list.
+
+    import Json.Decode
+    import Random
+    import Result.Extra
+
+    generateTo : List String -> ({variable:String} -> String)-> Int -> String -> String
+    generateTo list fun seed json =
+        json
+            |> Tracery.fromJson
+            |> Result.Extra.unpack
+                Json.Decode.errorToString
+                (\grammar ->
+                    Random.step (Tracery.runTo list grammar) (Random.initialSeed seed)
+                        |> Tuple.first
+                        |> toString fun
+                )
+
+    """
+    { "origin": ["A #color# #animal#"]
+    , "color": ["black","white","gray"]
+    , "animal":
+      [ "cat, looking at a #color# #animal#"
+      , "bird."
+      ]
+    }
+    """
+    |> generateTo ["animal"] (\{variable} -> "dog.") 42
+    --> "A black dog."
+
+-}
+runTo : List String -> Grammar -> Generator Grammar
+runTo list =
+    let
+        _ =
+            Coverage.track "Tracery" 9
+
+        set =
+            let
+                _ =
+                    Coverage.track "Tracery" 5
+            in
+            Set.fromList list
+    in
+    Tracery.Grammar.generateWhile
+        (\g ->
+            let
+                _ =
+                    Coverage.track "Tracery" 8
+            in
+            case g.next of
+                Just (Print (Variable string)) ->
+                    let
+                        _ =
+                            Coverage.track "Tracery" 6
+                    in
+                    not (Set.member string set)
+
+                _ ->
+                    let
+                        _ =
+                            Coverage.track "Tracery" 7
+                    in
+                    True
+        )
