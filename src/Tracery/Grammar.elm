@@ -2,8 +2,7 @@ module Tracery.Grammar exposing
     ( Grammar, fromDefinitions, toString
     , generateWhile, generateOutput, generateNext
     , Strategy, defaultStrategy, noRecursionStrategy, onlyRecursionStrategy
-    , toNext, withCommands, rewind, end
-    , skip
+    , toNext, withCommands, skip, rewind, end
     )
 
 {-| Creates a string generator based on a syntax.
@@ -26,7 +25,7 @@ module Tracery.Grammar exposing
 
 # Technical Utilities
 
-@docs toNext, withCommands, rewind, end
+@docs toNext, withCommands, skip, rewind, end
 
 -}
 
