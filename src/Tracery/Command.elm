@@ -1,6 +1,6 @@
 module Tracery.Command exposing
     ( Command(..), simplify, toString
-    , fillAll, fromExpressions, variables
+    , fillAll, fromExpressions, variables, onlyValues
     )
 
 {-| Commands are used to be able to pause the execution of a Grammar.
@@ -9,7 +9,7 @@ By modifying the commands in a grammar you can directly change how the program s
 
 @docs Command, simplify, toString
 
-@docs fillAll, fromExpressions, variables
+@docs fillAll, fromExpressions, variables, onlyValues
 
 -}
 
@@ -38,6 +38,21 @@ type Command
 fromExpressions : List Expression -> List Command
 fromExpressions =
     List.map Print
+
+
+{-| States if only values are in the list. This essentially means, that all processing has been done.
+-}
+onlyValues : List Command -> Bool
+onlyValues =
+    List.all
+        (\exp ->
+            case exp of
+                Print (Value _) ->
+                    True
+
+                _ ->
+                    False
+        )
 
 
 {-| Returns all variables.

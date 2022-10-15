@@ -37,17 +37,17 @@ andThenToString fun seed gen grammar =
 
 spec1 : Test.Test
 spec1 =
-    Test.test "#generateNext: \n\n    input\n    |> andThenToString (\\{variable} -> \"dog.\") 42\n        (\\g -> g\n            |> (generateNext defaultStrategy)\n            |> Random.andThen (generateNext defaultStrategy)\n        )\n    --> \"A dog.\"" <|
+    Test.test "#generateNext: \n\n    input\n    |> andThenToString (\\{variable} -> \"<\" ++ variable ++ \">.\") 42\n        (\\g -> g\n            |> (generateNext defaultStrategy)\n            |> Random.andThen (generateNext defaultStrategy)\n        )\n    --> \"A <animal>.\"" <|
         \() ->
             Expect.equal
                 (
                 input
-                |> andThenToString (\{variable} -> "dog.") 42
+                |> andThenToString (\{variable} -> "<" ++ variable ++ ">.") 42
                     (\g -> g
                         |> (generateNext defaultStrategy)
                         |> Random.andThen (generateNext defaultStrategy)
                     )
                 )
                 (
-                "A dog."
+                "A <animal>."
                 )

@@ -63,6 +63,18 @@ You can reference other fields using `#..#`
     |> generate 42
     --> "I have two pets: a dog and a cat"
 
+You can also save partially evaluated strings
+
+    """
+    { "origin": ["I both have a #myPet# and a #myPet#."]
+    , "myPet" : "#petWithColor#"
+    , "petWithColor" : ["black #pet#", "white #pet#", "brown #pet#"]
+    , "pet": ["cat","dog","fish","parrot"]
+    }
+    """
+    |> generate 41
+    --> "I both have a white cat and a white parrot."
+
 Definitions may also be recursive.
 
     """
@@ -118,7 +130,7 @@ Use `runTo` if you want to avoid long waiting times.
 run : Grammar -> Generator String
 run grammar =
     grammar
-        |> Tracery.Grammar.generateWhile (\_ -> True)
+        |> Tracery.Grammar.generateWhile (\_ -> True) Tracery.Grammar.defaultStrategy
         |> Random.map (Tracery.Grammar.toString (\_ -> ""))
 
 
@@ -178,3 +190,4 @@ runTo list =
                 _ ->
                     True
         )
+        Tracery.Grammar.defaultStrategy

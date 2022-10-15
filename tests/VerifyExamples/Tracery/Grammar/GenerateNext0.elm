@@ -37,7 +37,7 @@ andThenToString fun seed gen grammar =
 
 spec0 : Test.Test
 spec0 =
-    Test.test "#generateNext: \n\n    input\n    |> andThenToString (\\{variable} -> \"dog.\") 42\n        (\\g -> g\n            |> (generateNext defaultStrategy)\n            |> Random.andThen (generateNext defaultStrategy)\n            |> Random.andThen (generateNext defaultStrategy)\n        )\n    --> \"A cat, looking at a dog.\"" <|
+    Test.test "#generateNext: \n\n    input\n    |> andThenToString (\\{variable} -> \"dog.\") 42\n        (\\g -> g\n            |> (generateNext defaultStrategy)\n            |> Random.andThen (generateNext defaultStrategy)\n            |> Random.andThen (generateNext defaultStrategy)\n            |> Random.map rewind\n            |> Random.andThen (generateNext defaultStrategy)\n             |> Random.andThen (generateNext defaultStrategy)\n        )\n    --> \"A cat, looking at a dog.\"" <|
         \() ->
             Expect.equal
                 (
@@ -47,6 +47,9 @@ spec0 =
                         |> (generateNext defaultStrategy)
                         |> Random.andThen (generateNext defaultStrategy)
                         |> Random.andThen (generateNext defaultStrategy)
+                        |> Random.map rewind
+                        |> Random.andThen (generateNext defaultStrategy)
+                         |> Random.andThen (generateNext defaultStrategy)
                     )
                 )
                 (

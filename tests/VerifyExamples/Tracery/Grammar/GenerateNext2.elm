@@ -37,13 +37,13 @@ andThenToString fun seed gen grammar =
 
 spec2 : Test.Test
 spec2 =
-    Test.test "#generateNext: \n\n    input\n    |> andThenToString (\\{variable} -> \"dog.\") 42 (generateNext defaultStrategy)\n    --> \"A dog.\"" <|
+    Test.test "#generateNext: \n\n    input\n    |> andThenToString (\\{variable} -> \"<\" ++ variable ++ \">.\") 42 (generateNext defaultStrategy)\n    --> \"A <animal>.\"" <|
         \() ->
             Expect.equal
                 (
                 input
-                |> andThenToString (\{variable} -> "dog.") 42 (generateNext defaultStrategy)
+                |> andThenToString (\{variable} -> "<" ++ variable ++ ">.") 42 (generateNext defaultStrategy)
                 )
                 (
-                "A dog."
+                "A <animal>."
                 )

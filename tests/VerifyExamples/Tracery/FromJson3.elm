@@ -28,17 +28,19 @@ generate seed json =
 
 spec3 : Test.Test
 spec3 =
-    Test.test "#fromJson: \n\n    \"\"\"\n    { \"origin\": [\"I have two pets: a #pet# and a #pet#\"]\n    , \"pet\": [\"cat\",\"dog\",\"fish\",\"parrot\"]\n    }\n    \"\"\"\n    |> generate 42\n    --> \"I have two pets: a dog and a cat\"" <|
+    Test.test "#fromJson: \n\n    \"\"\"\n    { \"origin\": [\"I both have a #myPet# and a #myPet#.\"]\n    , \"myPet\" : \"#petWithColor#\"\n    , \"petWithColor\" : [\"black #pet#\", \"white #pet#\", \"brown #pet#\"]\n    , \"pet\": [\"cat\",\"dog\",\"fish\",\"parrot\"]\n    }\n    \"\"\"\n    |> generate 41\n    --> \"I both have a black cat and a black dog.\"" <|
         \() ->
             Expect.equal
                 (
                 """
-                { "origin": ["I have two pets: a #pet# and a #pet#"]
+                { "origin": ["I both have a #myPet# and a #myPet#."]
+                , "myPet" : "#petWithColor#"
+                , "petWithColor" : ["black #pet#", "white #pet#", "brown #pet#"]
                 , "pet": ["cat","dog","fish","parrot"]
                 }
                 """
-                |> generate 42
+                |> generate 41
                 )
                 (
-                "I have two pets: a dog and a cat"
+                "I both have a black cat and a black dog."
                 )

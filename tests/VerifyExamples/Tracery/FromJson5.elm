@@ -28,15 +28,15 @@ generate seed json =
 
 spec5 : Test.Test
 spec5 =
-    Test.test "#fromJson: \n\n    \"\"\"\n    { \"origin\": \"The \\\\\\\\# and \\\\\\\\\\\\\\\\ characters need to be escaped.\"}\n    \"\"\"\n    |> generate 42\n    --> \"The # and \\\\ characters need to be escaped.\"" <|
+    Test.test "#fromJson: \n\n    \"\"\"\n    { \"origin\": [\"I like cats\",\"I like dogs\"]}\n    \"\"\"\n    |> generate 42\n    --> \"I like cats\"" <|
         \() ->
             Expect.equal
                 (
                 """
-                { "origin": "The \\\\# and \\\\\\\\ characters need to be escaped."}
+                { "origin": ["I like cats","I like dogs"]}
                 """
                 |> generate 42
                 )
                 (
-                "The # and \\ characters need to be escaped."
+                "I like cats"
                 )

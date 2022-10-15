@@ -3,6 +3,7 @@ module Tracery.Grammar exposing
     , generateWhile, generateOutput, generateNext
     , Strategy, defaultStrategy, noRecursionStrategy, onlyRecursionStrategy
     , toNext, withCommands, rewind, end
+    , skip
     )
 
 {-| Creates a string generator based on a syntax.
@@ -129,25 +130,21 @@ toNext grammar =
     grammar |> withCommands grammar.stack
 
 
-{-| Generates a string while a predicate is valid
+{-| Puts the current command on the output (without executing it) and then gets the next command.
 -}
-generateWhile : (Grammar -> Bool) -> Grammar -> Generator Grammar
-generateWhile fun grammar =
-    grammar
-        |> generateOutput fun defaultStrategy
-        |> Random.andThen
-            (while (\g -> fun g && Tracery.Command.variables g.output /= [])
-                (\g ->
-                    g
-                        |> rewind
-                        |> generateOutput fun defaultStrategy
-                )
-            )
+skip : Grammar -> Grammar
+skip grammar =
+    (case grammar.next of
+        Just command ->
+            { grammar | output = grammar.output ++ [ command ] }
+
+        Nothing ->
+            grammar
+    )
+        |> toNext
 
 
-{-| Generates an output found in the resulting grammar.
-
-You can use `generateCommands` instead, If you intend to get the output right away.
+{-| Generates a string while a predicate is valid
 
     import Dict
     import Json.Decode
@@ -176,12 +173,31 @@ You can use `generateCommands` instead, If you intend to get the output right aw
             |> fromDefinitions
 
     input
-    |> andThenToString (\{variable} -> "dog.") 42 (generateOutput (\_ -> True) defaultStrategy)
+    |> andThenToString (\{variable} -> "dog.") 42 (generateWhile (\_ -> True) defaultStrategy)
     --> "A cat, looking at a cat, looking at a cat, looking at a cat, looking at a bird."
 
     input
-    |> andThenToString (\{variable} -> "dog.") 42 (generateOutput (\_ -> True) (noRecursionStrategy (Set.fromList ["animal"])))
+    |> andThenToString (\{variable} -> "dog.") 42 (generateWhile (\_ -> True) (noRecursionStrategy (Set.fromList ["animal"])))
     --> "A bird."
+
+-}
+generateWhile : (Grammar -> Bool) -> Strategy -> Grammar -> Generator Grammar
+generateWhile fun strategy grammar =
+    grammar
+        |> generateOutput fun strategy
+        |> Random.andThen
+            (while (\g -> fun g && not (Tracery.Command.onlyValues g.output))
+                (\g ->
+                    g
+                        |> rewind
+                        |> generateOutput fun strategy
+                )
+            )
+
+
+{-| Generates an output found in the resulting grammar.
+
+You can use `generateCommands` instead, If you intend to get the output right away.
 
 -}
 generateOutput : (Grammar -> Bool) -> Strategy -> Grammar -> Generator Grammar
@@ -235,20 +251,20 @@ Afterwards the next command gets loaded
 using this function, you can step through the computation
 
     input
-    |> andThenToString (\{variable} -> "dog.") 42 (generateNext defaultStrategy)
-    --> "A dog."
+    |> andThenToString (\{variable} -> "<" ++ variable ++ ">.") 42 (generateNext defaultStrategy)
+    --> "A <animal>."
 
 The second step does nothing (some steps only perform internal rearrangements)
 
     input
-    |> andThenToString (\{variable} -> "dog.") 42
+    |> andThenToString (\{variable} -> "<" ++ variable ++ ">.") 42
         (\g -> g
             |> (generateNext defaultStrategy)
             |> Random.andThen (generateNext defaultStrategy)
         )
-    --> "A dog."
+    --> "A <animal>."
 
-Doing a second step results in
+But after a few more steps (and some rewinding), we get the result
 
     input
     |> andThenToString (\{variable} -> "dog.") 42
@@ -256,6 +272,9 @@ Doing a second step results in
             |> (generateNext defaultStrategy)
             |> Random.andThen (generateNext defaultStrategy)
             |> Random.andThen (generateNext defaultStrategy)
+            |> Random.map rewind
+            |> Random.andThen (generateNext defaultStrategy)
+             |> Random.andThen (generateNext defaultStrategy)
         )
     --> "A cat, looking at a dog."
 
@@ -319,7 +338,7 @@ generateFromDefinition k0 grammar strategy definition =
             )
                 |> Random.map
                     (\stack ->
-                        { grammar | stack = Tracery.Command.fromExpressions stack ++ grammar.stack }
+                        { grammar | output = grammar.output ++ Tracery.Command.fromExpressions stack }
                     )
 
         Let statement ->
