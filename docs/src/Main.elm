@@ -4,6 +4,7 @@ import ElmBook exposing (Book)
 import ElmBook.Actions
 import ElmBook.Chapter exposing (Chapter)
 import ElmBook.Custom exposing (Msg)
+import ElmBook.Docs
 import ElmBook.StatefulOptions
 import Html exposing (Html)
 import Html.Attributes as Attr
@@ -88,7 +89,7 @@ component model =
             { onPress = Just (onPress model.input)
             , label = "Generate"
             }
-            [ Attr.style "background" "var(--elm-book-background)"
+            [ Attr.style "background-color" "#0087cf"
             , Attr.style "width" "fit-content"
             , Attr.style "color" "var(--elm-book-accent)"
             , Attr.style "padding" "8px 20px"
@@ -117,6 +118,7 @@ main =
         |> ElmBook.withStatefulOptions
             [ ElmBook.StatefulOptions.initialState init
             ]
-        |> ElmBook.withChapters
-            [ firstChapter
+        |> ElmBook.withChapterGroups
+            [ ( "Interactice", [ firstChapter ] )
+            , ( "Documentation", ElmBook.Docs.chapters )
             ]

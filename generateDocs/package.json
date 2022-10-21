@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "elm-codegen": "^0.2.0"
+  }
+}
